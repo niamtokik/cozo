@@ -12,10 +12,11 @@ COZO_LIBC = libcozo_c-$(COZO_VERSION)-$(COZO_ARCH)-$(COZO_OS)
 # CC_OPTS = -fpic -shared
 CC_OPTS = -shared -fpic
 
+ASDF_ERLANG_VERSION = 26.0.2
+
 all: cozo_nif.so
 
 clean:
-	-rm cozo_nif.o
 	-rm cozo_nif.so
 
 clean-all: clean
@@ -25,8 +26,11 @@ clean-all: clean
 	-rm libcozo_c.so
 
 cozo_nif.so:
-	cc cozo_nif.c -o $@ -I $(HOME)/.asdf/installs/erlang/26.0.2/usr/include -L $(HOME)/.asdf/installs/erlang/26.0.2/usr/lib -L$(pwd) -lei -lcozo_c -lerl_interface -shared -fPIC 
-	# cc -L$HOME/.asdf/installs/erlang/26.0.2/usr/lib -L$(pwd) -lei -lcozo_c -lerl_interface  -shared -fPIC -dynamiclib $< -o $@
+	cc cozo_nif.c -o $@ \
+	  -I $(HOME)/.asdf/installs/erlang/$(ASDF_ERLANG_VERSION)/usr/include \
+	  -L $(HOME)/.asdf/installs/erlang/$(ASDF_ERLANG_VERSION)/usr/lib \
+	  -L $$(pwd) \
+	  -lei -lcozo_c -shared -fPIC 
 
 cozo_c.h:
 	wget "$(COZO_REPOSITORY)/v$(COZO_VERSION)/$@"

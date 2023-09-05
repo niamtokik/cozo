@@ -12,8 +12,8 @@
 -export([import_relations/2, export_relations/2]).
 -export([backup/2, restore/2, import_backup/2]).
 -nifs([open_db/2,close_db/1,run_query/4]).
--nifs([import_relations_db/2, export_relations_db/2]).
--nifs([backup_db/2, restore_db/2, import_backup_db/2]).
+% -nifs([import_relations_db/2, export_relations_db/2]).
+% -nifs([backup_db/2, restore_db/2, import_backup_db/2]).
 -on_load(init/0).
 
 %%--------------------------------------------------------------------

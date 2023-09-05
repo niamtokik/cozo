@@ -12,10 +12,27 @@ This is just a PoC... Lot of things to do.
 ## Build
 
 ```sh
+make all
+
+# Issue with libraries and path... Just use that to fix
+# temporarily the issue
+# you can check with 
+#    $ LD_PRELOAD_PATH=$(pwd)/c_src ldd c_src/libcozo_c.so
+export LD_PRELOAD_PATH=$(pwd)/c_src
+
+# If it still does not work, copy libcozo_c.so in /usr/lib
+# This is not the best method though, but it will give you
+# access to it.
+sudo cp c_src/libcozo_c.so /usr/lib
+```
+
+```sh
 rebar3 compile
 ```
 
 ## Usage
+
+
 
 ```erlang
 % open a new database in memory 

@@ -272,11 +272,11 @@ static ErlNifFunc nif_funcs[] =
   {
    {"open_db", 2, open_db},
    {"close_db", 1, close_db},
-   {"run_query", 4, run_query},
-   {"import_relations_db", 2, import_relations_db},
-   {"export_relations_db", 2, export_relations_db},
-   {"backup_db", 2, backup_db},
-   {"restore_db", 2, restore_db},
-   {"import_backup_db", 2, import_backup_db}
+   {"run_query", 4, run_query}
+   // {"import_relations_db", 2, import_relations_db},
+   // {"export_relations_db", 2, export_relations_db},
+   // {"backup_db", 2, backup_db},
+   // {"restore_db", 2, restore_db},
+   // {"import_backup_db", 2, import_backup_db}
   };
 ERL_NIF_INIT(cozo,nif_funcs,NULL,NULL,NULL,NULL)
