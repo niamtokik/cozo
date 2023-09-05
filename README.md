@@ -31,6 +31,6 @@ rebar3 compile
      }
 } = cozo:run(Db, "?[] <- [[1, 2, 3]]").
 
-// close the database
+% close the database
 ok = cozo:close(Db).
 ```
