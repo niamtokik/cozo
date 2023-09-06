@@ -20,7 +20,7 @@
 % extra management functions
 -export([list_columns/2, list_indices/2]).
 -export([explain/2, describe/3]).
--export([show_triggers/2]).
+-export([get_triggers/2]).
 -export([set_access_level/3, set_access_levels/3]).
 -export([get_running_queries/1, kill/2, compact/1]).
 
@@ -185,7 +185,7 @@ run(Db, Query, Params, Mutable)
 %% ```
 %% {ok, _} = cozo:import_relations(Db, #{}).
 %% '''
-%% 
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec import_relations(Db, Json) -> Return when
@@ -211,7 +211,7 @@ import_relations(Db, Json)
 %% ```
 %% {ok, _} = cozo:export_relations(Db, #{}).
 %% '''
-%% 
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec export_relations(Db, Json) -> Return when
@@ -238,7 +238,7 @@ export_relations(Db, Json)
 %% ```
 %% {ok, _} = cozo:backup(Db, "/tmp/backup.db").
 %% '''
-%% 
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec backup(Db, OutPath) -> Return when
@@ -260,7 +260,7 @@ backup(Db, OutPath)
 %% ```
 %% {ok, _} = cozo:restore(Db, "/tmp/backup.db").
 %% '''
-%% 
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec restore(Db, InPath) -> Return when
@@ -282,7 +282,7 @@ restore(Db, InPath)
 %% ```
 %% {ok, _} = cozo:import_backup(Db, #{}).
 %% '''
-%% 
+%%
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -301,6 +301,13 @@ import_backup(Db, Json)
 
 %%--------------------------------------------------------------------
 %% @doc returns the list of relations
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:list_relations(Db).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 list_relations(Db) ->
@@ -308,6 +315,14 @@ list_relations(Db) ->
 
 %%--------------------------------------------------------------------
 %% @doc explain a query.
+%%
+%% == Examples ==
+%%
+%% ```
+%% Query = "?[] <- [['hello', 'world', 'Cozo!']]",
+%% {ok, _} = (Db, Query).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 explain(Db, Query) ->
@@ -316,6 +331,13 @@ explain(Db, Query) ->
 
 %%--------------------------------------------------------------------
 %% @doc list columns
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:list_columns(Db, Column).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 list_columns(Db, Name) ->
@@ -324,6 +346,13 @@ list_columns(Db, Name) ->
 
 %%--------------------------------------------------------------------
 %% @doc list indices
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:list_indices(Db, Indice).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 list_indices(Db, Name) ->
@@ -332,6 +361,13 @@ list_indices(Db, Name) ->
 
 %%--------------------------------------------------------------------
 %% @doc describe a relation.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:describe(Db, Relation).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 describe(Db, Name, Description) ->
@@ -340,6 +376,13 @@ describe(Db, Name, Description) ->
 
 %%--------------------------------------------------------------------
 %% @doc remove a stored relation.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:remove_relations(Db, Relation).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 remove_relation(Db, Name) ->
@@ -348,6 +391,13 @@ remove_relation(Db, Name) ->
 
 %%--------------------------------------------------------------------
 %% @doc remove a stored relations.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:remove_relations(Db, [R1, R2, R3]).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 remove_relations(Db, Names) ->
@@ -356,14 +406,28 @@ remove_relations(Db, Names) ->
 
 %%--------------------------------------------------------------------
 %% @doc Display triggers
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:get_triggers(Db, Trigger).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
-show_triggers(Db, Name) ->
+get_triggers(Db, Name) ->
   Command = string:join(["::show_triggers", Name], " "),
   run(Db, Command).
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:set_access_level(Db, Level, Name).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 set_access_level(Db, Level, Name) ->
@@ -372,6 +436,13 @@ set_access_level(Db, Level, Name) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:se_access_levelss(Db, Level, [N1, N2, N3]).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 set_access_levels(Db, Level, Names) ->
@@ -380,6 +451,13 @@ set_access_levels(Db, Level, Names) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:get_running_queries(Db).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 get_running_queries(Db) ->
@@ -387,6 +465,13 @@ get_running_queries(Db) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:kill(Db, Id).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 kill(Db, Id) ->
@@ -395,6 +480,13 @@ kill(Db, Id) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:compact(Db).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 compact(Db) ->
@@ -402,6 +494,13 @@ compact(Db) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:create_relation(Db, Name, Spec).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 create_relation(Db, Name, Spec) ->
@@ -410,6 +509,13 @@ create_relation(Db, Name, Spec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:replace_relation(Db, Name, Spec).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 replace_relation(Db, Name, Spec) ->
@@ -418,6 +524,13 @@ replace_relation(Db, Name, Spec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:put_row(Db, Name, Spec).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 put_row(Db, Name, Spec) ->
@@ -426,6 +539,13 @@ put_row(Db, Name, Spec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:update_row(Db, Name, Spec).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 update_row(Db, Name, Spec) ->
@@ -434,6 +554,13 @@ update_row(Db, Name, Spec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:remove_row(Db, Name, Spec).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 remove_row(Db, Name, Spec) ->
@@ -442,6 +569,13 @@ remove_row(Db, Name, Spec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:ensure_row(Db, Name, Spec).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 ensure_row(Db, Name, Spec) ->
@@ -450,6 +584,13 @@ ensure_row(Db, Name, Spec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:ensure_not_row(Db, Name, Spec).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 ensure_not_row(Db, Name, Spec) ->
@@ -474,9 +615,7 @@ run_query_parser(Db, Query, Params, Mutability) ->
 %%--------------------------------------------------------------------
 decode_json(Message) ->
     case thoas:decode(Message) of
-	{ok, Decoded} -> {ok, Decoded};
-	{error, Error} -> {error, {Error, Message}};
-	Elsewise -> Elsewise
+  {ok, Decoded} -> {ok, Decoded};
+  {error, Error} -> {error, {Error, Message}};
+  Elsewise -> Elsewise
     end.
-
-	     

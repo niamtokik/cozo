@@ -69,11 +69,11 @@ make shell
 ```
 
 ```erlang
-% open a new database in memory 
+% open a new database in memory
 {ok,0} = cozo:open().
 
 % run a query
-3> 
+3>
 {ok,#{ <<"headers">> => [<<"_0">>,<<"_1">>,<<"_2">>],
        <<"next">> => null,
        <<"ok">> => true,
