@@ -164,7 +164,14 @@ run(Db, Query, Params, Immutable)
     end.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc import relations as json.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:import_relations(Db, #{}).
+%% '''
+%% 
 %% @end
 %%--------------------------------------------------------------------
 -spec import_relations(Db, Json) -> Return when
@@ -181,7 +188,14 @@ import_relations(Db, Json)
     end.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc export database relationships from json as map.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:export_relations(Db, #{}).
+%% '''
+%% 
 %% @end
 %%--------------------------------------------------------------------
 -spec export_relations(Db, Json) -> Return when
@@ -199,7 +213,14 @@ export_relations(Db, Json)
     end.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc backup a database to a file.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:backup(Db, "/tmp/backup.db").
+%% '''
+%% 
 %% @end
 %%--------------------------------------------------------------------
 -spec backup(Db, OutPath) -> Return when
@@ -212,7 +233,14 @@ backup(Db, OutPath)
     cozo_nif:backup_db(Db, OutPath ++ "\n").
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc restore a database based from a backup path.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:restore(Db, "/tmp/backup.db").
+%% '''
+%% 
 %% @end
 %%--------------------------------------------------------------------
 -spec restore(Db, InPath) -> Return when
@@ -225,7 +253,15 @@ restore(Db, InPath)
     cozo_nif:restore_db(Db, InPath ++ "\n").
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc import a database backup from json like object as map.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:import_backup(Db, #{}).
+%% '''
+%% 
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec import_backup(Db, Json) -> Return when

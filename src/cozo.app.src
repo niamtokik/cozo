@@ -1,5 +1,5 @@
 {application, cozo,
- [{description, "An OTP application"},
+ [{description, "Erlang NIF interface to CozoDB."},
   {vsn, "0.1.0"},
   {registered, []},
   {mod, {cozo_app, []}},
@@ -11,5 +11,5 @@
   {modules, []},
 
   {licenses, ["Apache-2.0"]},
-  {links, []}
+  {links, ["https://github.com/niamtokik/cozo"]}
  ]}.

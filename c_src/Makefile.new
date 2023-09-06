@@ -1,0 +1,84 @@
+######################################################################
+# GNU Makefile
+######################################################################
+unexport LDFLAGS
+unexport CFLAGS
+unexport CXXFLAGS
+
+COZO_REPOSITORY = https://github.com/cozodb/cozo/releases/download
+COZO_VERSION = 0.7.2
+COZO_CHECKSUM = 472921fc7a944fe5bdf040aa154cafdd6b23ce6401b4ad96abb9a41747c84df6
+
+# Based on rebar3 new cmake
+
+CURDIR := $(shell pwd)
+BASEDIR := $(abspath $(CURDIR)/..)
+
+PROJECT ?= $(notdir $(BASEDIR))
+PROJECT := $(strip $(PROJECT))
+
+ERL_BIN_DIR ?= $(shell erl -noshell -eval "io:format(\"~ts/erts-~ts/bin/\", [code:root_dir(), erlang:system_info(version)])." -s init stop)
+ERTS_INCLUDE_DIR ?= $(shell erl -noshell -eval "io:format(\"~ts/erts-~ts/include/\", [code:root_dir(), erlang:system_info(version)])." -s init stop)
+ERL_INTERFACE_INCLUDE_DIR ?= $(shell erl -noshell -eval "io:format(\"~ts\", [code:lib_dir(erl_interface, include)])." -s init stop)
+ERL_INTERFACE_LIB_DIR ?= $(shell erl -noshell -eval "io:format(\"~ts\", [code:lib_dir(erl_interface, lib)])." -s init stop)
+
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_M), x86_64)
+    COZO_ARCH = x86_64
+else ifeq ($(UNAME_M), aarch64)
+    COZO_ARCH = aarch64
+else ifeq ($(UNAME_M), arm64)
+    COZO_ARCH = aarch64
+else ifeq ($(UNAME_M), armv7l)
+    COZO_ARCH = armv7
+else
+    $(error Cozo doesn't support $(UNAME_M) architecture)
+endif
+
+UNAME_SYS := $(shell uname -s)
+ifeq ($(UNAME_SYS), Darwin)
+	COZO_OS = apple-darwin
+	COZO_LIBC_EXT = dylib
+	LDFLAGS = -bundle -bundle_loader $(ERL_BIN_DIR)beam.smp -flat_namespace -undefined suppress
+else ifeq ($(UNAME_SYS), Linux)
+	COZO_OS = unknown-linux-gnu
+	COZO_LIBC_EXT = so
+	LDFLAGS = -shared
+else ifeq ($(UNAME_SYS), FreeBSD)
+	$(error Cozo doesn't support FreeBSD)
+endif
+
+COZO_LIBC = libcozo_c-$(COZO_VERSION)-$(COZO_ARCH)-$(COZO_OS).$(COZO_LIBC_EXT)
+
+CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
+LDLIBS += -L $(ERL_INTERFACE_LIB_DIR)  -L $$(pwd) -lei -lcozo_c
+
+all: cozo_nif.so
+
+clean:
+	-rm cozo_nif.so
+
+clean-all: clean
+	-rm cozo_c.h
+	-rm $(COZO_LIBC).gz
+	-rm libcozo_c.so
+
+cozo_nif.so: cozo_c.h libcozo_c.so
+	cc cozo_nif.c -o $@ $(CFLAGS) $(LDLIBS) $(LDFLAGS)
+
+cozo_c.h:
+	wget "$(COZO_REPOSITORY)/v$(COZO_VERSION)/$@"
+
+$(COZO_LIBC).gz:
+	if [ ! -e $(COZO_LIBC).gz ]; then \
+        echo "Downloading library...$(COZO_LIBC).gz"; \
+    	wget "$(COZO_REPOSITORY)/v$(COZO_VERSION)/$@"; \
+    else \
+        echo "Library already downloaded."; \
+    fi
+
+$(COZO_LIBC): $(COZO_LIBC).gz
+	gunzip --keep $(COZO_LIBC).gz
+
+libcozo_c.so: $(COZO_LIBC)
+	mv $(COZO_LIBC) $@

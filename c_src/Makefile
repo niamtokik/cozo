@@ -29,7 +29,7 @@ cozo_nif.so:
 	cc cozo_nif.c -o $@ \
 	  -I $(HOME)/.asdf/installs/erlang/$(ASDF_ERLANG_VERSION)/usr/include \
 	  -L $(HOME)/.asdf/installs/erlang/$(ASDF_ERLANG_VERSION)/usr/lib \
-	  -L $$(pwd) \
+	  -L $(shell pwd) \
 	  -lei -lcozo_c -shared -fPIC 
 
 cozo_c.h:
