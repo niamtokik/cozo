@@ -2,13 +2,6 @@
 
 A quick and dirty NIF interface to cozodb.
 
-## Todo
-
-This is just a PoC... Lot of things to do.
-
- - [ ] create test suite
- - [ ] and much more...
-
 ## Support
 
  - [x] `cozo_open_db` with `cozo:open/0` and `cozo:open/2`.
@@ -20,34 +13,60 @@ This is just a PoC... Lot of things to do.
  - [x] `cozo_restore`  with `cozo:restore/2`
  - [x] `cozo_import_from_backup`  with `cozo:import_backup/2`
 
+## Todo
+
+ - [ ] Create test suite for `cozo` module
+   - [x] test `cozo:open` function
+   - [x] test `cozo:close` function
+   - [x] test `cozo:run` function
+   - [ ] test `cozo:import_relations` function
+   - [ ] test `cozo:export_relation` function
+   - [ ] test `cozo:backup` function
+   - [ ] test `cozo:restore` function
+   - [ ] test `cozo:import_backup` function
+ - [ ] Create test sutie for `cozo_nif` module
+ - [ ] Specify interfaces
+ - [ ] Add property based testing support
+ - [ ] Add Dialyzer support
+ - [ ] Create more usage example
+ - [ ] Create distributed example
+ - [ ] Check if `cozo_nif.c` is safe
+
 ## Build
+
+This project is using `Makefile` to extend the capability of
+rebar3. everything can be easily done with it.
 
 ```sh
 make all
-
-# Issue with libraries and path... Just use that to fix
-# temporarily the issue
-# you can check with 
-#    $ LD_PRELOAD_PATH=$(pwd)/c_src ldd c_src/libcozo_c.so
-export LD_PRELOAD_PATH=$(pwd)/c_src
-
-# If it still does not work, copy libcozo_c.so in /usr/lib
-# This is not the best method though, but it will give you
-# access to it.
-sudo cp c_src/libcozo_c.so /usr/lib
-```
-
-```sh
-rebar3 compile
+# or
+make deps compile
 ```
 
 ## Test
 
+A full test suite is present in `test/cozo_SUITE.erl` file, using the
+cozodb tutorial present in the official documentation as template.
+
 ```sh
-make clean all test
+make test
+```
+
+## Documentation
+
+A short documentation
+
+```sh
+make doc
 ```
 
 ## Usage
+
+Open a shell with `make`
+
+```sh
+make shell
+```
 
 ```erlang
 % open a new database in memory 
