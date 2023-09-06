@@ -220,9 +220,16 @@ multi_spawn() -> [].
 %% Comment = term()
 %%--------------------------------------------------------------------
 multi_spawn(_Config) ->
-  Limit = 100000,
+    [ cozo_spawn(100)
+    , cozo_spawn(1_000)
+    , cozo_spawn(10_000)
+    , cozo_spawn(100_000)
+    ].
+
+cozo_spawn(Counter) ->
   Open = fun() -> {ok, Db} = cozo:open(), Db end,
-  Dbs = [ Open() || _ <- lists:seq(1,Limit) ],
+  Dbs = [ Open() || _ <- lists:seq(1, Counter) ],
   Run = fun(Db) -> spawn(cozo_nif, run, [Db, "?[] <- [[1, 2, 3]]"]) end,
   [ Run(Db) || Db <- Dbs ],
   [ cozo:close(Db) || Db <- Dbs ].
+    

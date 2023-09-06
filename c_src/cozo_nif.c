@@ -5,13 +5,9 @@
 #include <erl_nif.h>
 #include "cozo_c.h"
 
-/*
- *
- */
-
 extern void cozo_free_str(char *s);
 
-/*
+/* simple 'ok' atom helper.
  *
  */
 ERL_NIF_TERM atom_ok(ErlNifEnv *env) {
@@ -19,7 +15,7 @@ ERL_NIF_TERM atom_ok(ErlNifEnv *env) {
   return enif_make_atom(env, atom);
 }
 
-/*
+/* simple 'error' atom helper
  *
  */
 ERL_NIF_TERM atom_error(ErlNifEnv *env) {
