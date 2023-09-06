@@ -65,6 +65,11 @@ else
 	$(error "Cozo does not support $(UNAME_SYS) operating system")
 endif
 
+# Configure checksum based on the os/arch
+ifeq ($(UNAME_SYS)-$(UNAME_M), unknown-linux-gnu-x86_64)
+	COZO_LIB_CHECKSUM ?= 472921fc7a944fe5bdf040aa154cafdd6b23ce6401b4ad96abb9a41747c84df6
+endif
+
 # Cozo Path Building
 COZO_LIB_PREFIX = libcozo_c-$(COZO_VERSION)-$(COZO_LIB_ARCH)-$(COZO_LIB_OS)
 COZO_LIB_NAME = libcozo_c-$(COZO_VERSION)-$(COZO_LIB_ARCH)-$(COZO_LIB_OS).so
@@ -104,7 +109,7 @@ help:
 .PHONY += all
 all: deps compile test doc
 
-deps: $(TARGETS)
+deps: $(PRIV_DIR)/cozo_nif.so
 
 .PHONY += compile
 compile:
@@ -131,21 +136,21 @@ clean:
 ######################################################################
 # Main Targets
 ######################################################################
-$(PRIV_DIR):
-	make -p $@
-
-$(CSRC_DIR)/cozo_c.h: $(PRIV_DIR)
+$(CSRC_DIR)/cozo_c.h:
 	wget -qO $@ $(COZO_HEADER_URL)
 
-$(PRIV_DIR)/$(COZO_LIB_PACKAGE): $(PRIV_DIR)
+$(PRIV_DIR):
+	mkdir $@
+
+$(PRIV_DIR)/$(COZO_LIB_PACKAGE): | $(PRIV_DIR)
 	wget -qO $@ $(COZO_LIB_URL)
 
 $(PRIV_DIR)/$(COZO_LIB_NAME): $(PRIV_DIR)/$(COZO_LIB_PACKAGE)
 	cd $(PRIV_DIR) && gunzip --keep $(COZO_LIB_PACKAGE)
 
 $(PRIV_DIR)/libcozo_c.so: $(PRIV_DIR)/$(COZO_LIB_NAME)
-	cd $(PRIV_DIR) && cp $(COZO_LIB_NAME) libcozo_c.so
+	cd $(PRIV_DIR) && ln $(COZO_LIB_NAME) libcozo_c.so
 
-$(PRIV_DIR)/cozo_nif.so:
+$(PRIV_DIR)/cozo_nif.so: $(CSRC_DIR)/cozo_c.h $(PRIV_DIR)/libcozo_c.so
 	$(CC) c_src/cozo_nif.c $(CC_OPTS) -o $(@)
 

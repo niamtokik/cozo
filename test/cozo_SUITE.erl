@@ -1,5 +1,7 @@
 %%%-------------------------------------------------------------------
-%%%
+%%% @author Mathieu Kerjouan
+%%% @doc
+%%% @end
 %%%-------------------------------------------------------------------
 -module(cozo_SUITE).
 -compile(export_all).
@@ -101,8 +103,10 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 
-all() -> [tutorial_intro, tutorial_expressions, tutorial_rules
-         ,tutorial_stored_relations, simple, multi_spawn].
+all() -> [ tutorial_intro, tutorial_expressions, tutorial_rules
+         , tutorial_stored_relations, tutorial_command_blocks
+	 , tutorial_graphs, tutorial_negation, tutorial_recursion
+	 , simple, multi_spawn].
 
 %%--------------------------------------------------------------------
 %%
@@ -124,22 +128,22 @@ tutorial_expressions() -> [].
 tutorial_expressions(_Config) ->
   % https://docs.cozodb.org/en/latest/tutorial.html#Expressions
   % this one crash
-  % ?QUERY_ERROR(Db4, "?[] <- [["
-  %	       "1 + 2, # addition"
-  %	       "3 / 4, # division"
-  %	       "5 == 6, # equality"
-  %	       "7 > 8, # greater"
-  %	       "true || false, # or"
-  %	       "false && true, # and"
-  %	       "lowercase('HELLO'), # function"
-  %	       "rand_float(), # function taking no argument"
-  %	       "union([1, 2, 3], [3, 4, 5], [5, 6, 7]), # variadic function"
-  %	       "]]"),
-
-  ?QUERY_OK(Db5, "a[x, y] <- [[1, 2], [3, 4]]"
-	    "b[y, z] <- [[2, 3], [2, 4]]"
-	    "?[x, y, z] := a[x, y], b[y, z]"
-	    "?[x, y, z] := a[x, y], not b[y, _], z = null").
+    ?QUERY_OK(Db4, "?[] <- [["
+	      "1 + 2,"
+	      "3 / 4,"
+	      "5 == 6,"
+	      "7 > 8,"
+	      "true || false,"
+	      "false && true,"
+	      "lowercase('HELLO'),"
+	      "rand_float(),"
+	      "union([1, 2, 3], [3, 4, 5], [5, 6, 7])"
+	      "]]"),
+    
+    ?QUERY_OK(Db5, "a[x, y] <- [[1, 2], [3, 4]]"
+	      "b[y, z] <- [[2, 3], [2, 4]]"
+	      "?[x, y, z] := a[x, y], b[y, z]"
+	      "?[x, y, z] := a[x, y], not b[y, _], z = null").
 
 tutorial_rules() -> [].
 tutorial_rules(_Config) ->
@@ -180,11 +184,111 @@ tutorial_joins(_Config) ->
 	    "?[x, y, z] := a[x, y], b[y, z]"
 	    "?[x, y, z] := a[x, y], not b[y, _], z = null").
 
+
+-define(IQUERY_LOG(DB, QUERY),
+	begin
+	    (fun() ->
+		     {ok, R} = cozo:run(DB, QUERY),
+		     LogFormat = "db: ~p~nquery: ~s~nresult: ~p",
+		     LogArgs = [DB,QUERY,R],
+		     ct:pal(info, ?LOW_IMPORTANCE, LogFormat, LogArgs)
+	     end)()
+	end).
+
 tutorial_stored_relations() -> [].
 tutorial_stored_relations(_Config) ->
-  % https://docs.cozodb.org/en/latest/tutorial.html#Stored-relations
-  % this one crash
-  ?QUERY_ERROR(Db16, ":create stored {c1, c2}").
+    % https://docs.cozodb.org/en/latest/tutorial.html#Stored-relations
+    {ok, Db} = cozo:open(),
+    ?IQUERY_LOG(Db, ":create stored {c1, c2}"),
+    ?IQUERY_LOG(Db, ":create dept_info {"
+		"company_name: String,"
+		"department_name: String,"
+		"=>"
+		"head_count: Int default 0,"
+		"address: String," 
+		"}"),
+    ?IQUERY_LOG(Db, "?[a, b, c] <- [[1, 'a', 'A'],"
+		"[2, 'b', 'B'],"
+		"[3, 'c', 'C'],"
+		"[4, 'd', 'D']]"),
+    ?IQUERY_LOG(Db, ":create fd {a, b => c}"),
+    ?IQUERY_LOG(Db, "?[a, b, c] := *fd[a, b, c]"),
+    ?IQUERY_LOG(Db, "?[a, b, c] <- [[3, 'c', 'CCCCCCC']]"),
+    ?IQUERY_LOG(Db, ":put fd {a, b => c}"
+		"?[a, b, c] := *fd[a, b, c]"),
+    ?IQUERY_LOG(Db, "::relations"),
+    ?IQUERY_LOG(Db, "::columns stored"),
+    % @todo: crash ?IQUERY_LOG(Db, "?[a, b] := *stored[a, b]"),
+    % @todo: crash ?IQUERY_LOG(Db, "?[a, b] := *stored{l2: b, l1: a}"),
+    % @todo: crash ?IQUERY_LOG(Db, "?[l2] := *stored{l2}"),
+    ?IQUERY_LOG(Db, "?[l1, l2] <- [['e', 'E']]"),
+    % @todo: crash ?IQUERY_LOG(Db, ":rm stored {l1, l2}"),
+    ?IQUERY_LOG(Db, "?[l1, l2] := *stored[l1, l2]"),
+    ?IQUERY_LOG(Db, "::remove stored"),
+    ?IQUERY_LOG(Db, "::relations"),
+    ?IQUERY_LOG(Db, "::remove fd"),
+    ok = cozo:close(Db).
+
+tutorial_command_blocks() -> [].
+tutorial_command_blocks(_Config) ->
+    {ok, Db} = cozo:open(),
+    ?IQUERY_LOG(Db, "{?[a] <- [[1], [2], [3]]; :replace test {a}}"
+		"{?[a] <- []; :replace test2 {a}}"
+		"%swap test test2"
+		"%return test"),
+    ok = cozo:close(Db).
+
+tutorial_graphs() -> [].
+tutorial_graphs(_Config) ->
+    {ok, Db} = cozo:open(),
+    ?IQUERY_LOG(Db, "?[loving, loved] <- [['alice', 'eve'],"
+		"['bob', 'alice'],"
+		"['eve', 'alice'],"
+		"['eve', 'bob'],"
+		"['eve', 'charlie'],"
+		"['charlie', 'eve'],"
+		"['david', 'george'],"
+		"['george', 'george']]"
+		":replace love {loving, loved}"),
+    ?IQUERY_LOG(Db, "?[loved_by_b_e] := *love['eve', loved_by_b_e],"
+		"*love['bob', loved_by_b_e]"),
+    ?IQUERY_LOG(Db, "?[loved_by_b_e] := *love['eve', loved_by_b_e] or *love['bob', loved_by_b_e],"
+		"loved_by_b_e != 'bob',"
+		"loved_by_b_e != 'eve'"),
+    ?IQUERY_LOG(Db, "?[loved_by_b_e] := *love['eve', loved_by_b_e],"
+		"loved_by_b_e != 'bob',"
+		"loved_by_b_e != 'eve'"
+		"?[loved_by_b_e] := *love['bob', loved_by_b_e],"
+		"loved_by_b_e != 'bob',"
+		"loved_by_b_e != 'eve'"),
+    ok = cozo:close(Db).
+
+tutorial_negation() -> [].
+tutorial_negation(_Config) ->
+    {ok, Db} = cozo:open(),
+    %% @todo: crash
+    %% ?IQUERY_LOG(Db, "?[loved] := *love[person, loved], !ends_with(person, 'e')"),
+    %% ?IQUERY_LOG(Db, "?[loved_by_e_not_b] := *love['eve', loved_by_e_not_b],"
+    %% 	       "not *love['bob', loved_by_e_not_b]"),
+    %% ?IQUERY_LOG(Db, "?[not_loved_by_b] := not *love['bob', not_loved_by_b]"),
+    %% ?IQUERY_LOG(Db, "the_population[p] := *love[p, _a]"
+    %% 	       "the_population[p] := *love[_a, p]"
+    %% 	       "?[not_loved_by_b] := the_population[not_loved_by_b],"
+    %% 	       "not *love['bob', not_loved_by_b]"),
+    ok = cozo:close(Db).
+
+tutorial_recursion() -> [].
+tutorial_recursion(_Config) ->
+    {ok, Db} = cozo:open(),
+    %% @todo: crash
+    %% ?IQUERY_LOG(Db, "alice_love_chain[person] := *love['alice', person]"
+    %% 	       "alice_love_chain[person] := alice_love_chain[in_person],"
+    %% 	       "*love[in_person, person]"
+    %% 	       "?[chained] := alice_love_chain[chained]"),
+    %% ?IQUERY_LOG(Db, "alice_love_chain[person] := alice_love_chain[in_person],"
+    %% 	       "*love[in_person, person]"
+    %% 	       "?[chained] := alice_love_chain[chained]"),
+    ok = cozo:close(Db).
 
 %%--------------------------------------------------------------------
 %% Function: TestCase() -> Info

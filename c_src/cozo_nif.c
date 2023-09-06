@@ -23,10 +23,9 @@ ERL_NIF_TERM atom_error(ErlNifEnv *env) {
   return enif_make_atom(env, atom);
 }
 
-/*
- *
- */
 extern char *cozo_open_db(const char *engine, const char *path, const char *options, int32_t *db_id);
+/* Open a new database based on engine, path, option and mutability.
+ */
 static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   // get the engine string length
   int engine_length;
@@ -61,10 +60,10 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
   return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "open_error"));
 }
 
-/*
- *
- */
 extern bool cozo_close_db(int32_t id);
+/*
+ * Close an already opened database based by its ID.
+ */
 static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   int db_id;
   if (!enif_get_int(env, argv[0], &db_id)) {
@@ -83,9 +82,6 @@ static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 extern char *cozo_run_query(int32_t db_id, const char *script_raw, const char *params_raw, bool immutable_query);
 static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   int db_id;
-  // const char *params_raw;
-  // bool immutable_query;
-
   if (!enif_get_int(env, argv[0], &db_id)) {
     return enif_make_badarg(env);
   }

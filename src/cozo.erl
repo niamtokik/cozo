@@ -1,8 +1,6 @@
 %%%===================================================================
 %%% @author Mathieu Kerjouan
-%%%
-%%% @doc Raw NIF implementation of cozodb. The library must be
-%%% compiled first.
+%%% @doc Main interface to CozoDB Erlang NIF `cozo_nif' module.
 %%% @end
 %%%===================================================================
 -module(cozo).
@@ -142,25 +140,25 @@ run(Db, Query, Params) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec run(Db, Query, Params, Immutable) -> Return when
+-spec run(Db, Query, Params, Mutable) -> Return when
       Db :: pos_integer(),
       Query :: string(),
       Params :: map(),
-      Immutable :: boolean(),
+      Mutable :: boolean(),
       Return :: {ok, string()} | {error, term()}.
 
-run(Db, Query, Params, Immutable)
+run(Db, Query, Params, Mutable)
   when is_integer(Db) andalso is_list(Query) andalso
-       is_map(Params) andalso is_boolean(Immutable) ->
+       is_map(Params) andalso is_boolean(Mutable) ->
     NewQuery = Query ++ "\n",
     NewParams = binary_to_list(thoas:encode(Params)) ++ "\n",
-    case {NewQuery, NewParams, Immutable} of
+    case {NewQuery, NewParams, Mutable} of
       {"\n", "\n", _} ->
         {error, "no query and no params"};
       {NewQuery, NewParams, true} ->
-        run_query_parser(Db, NewQuery, NewParams, 1);
+        run_query_parser(Db, NewQuery, NewParams, 0);
       {NewQuery, NewParams, false} ->
-        run_query_parser(Db, NewQuery, NewParams, 0)
+        run_query_parser(Db, NewQuery, NewParams, 1)
     end.
 
 %%--------------------------------------------------------------------
@@ -284,6 +282,20 @@ import_backup(Db, Json)
 %%--------------------------------------------------------------------
 run_query_parser(Db, Query, Params, Mutability) ->
   case cozo_nif:run_query(Db, Query, Params, Mutability) of
-    {ok, Result} -> thoas:decode(Result);
+    {ok, Result} -> decode_json(Result);
     Elsewise -> Elsewise
   end.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc wrapper around JSON decoder.
+%% @end
+%%--------------------------------------------------------------------
+decode_json(Message) ->
+    case thoas:decode(Message) of
+	{ok, Decoded} -> {ok, Decoded};
+	{error, Error} -> {error, {Error, Message}};
+	Elsewise -> Elsewise
+    end.
+
+	     
