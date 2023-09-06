@@ -9,6 +9,17 @@ This is just a PoC... Lot of things to do.
  - [ ] create test suite
  - [ ] and much more...
 
+## Support
+
+ - [x] `cozo_open_db` with `cozo_nif:open/0` and `cozo_nif:open/2`.
+ - [x] `cozo_close_db` with `cozo_nif:close/1`
+ - [x] `cozo_run_query` with `cozo_nif:run/2`, `cozo_nif:run/3` and `cozo_nif:run/4`
+ - [x] `cozo_import_relations` with `cozo_nif:import_relations/2`
+ - [x] `cozo_export_relations` with `cozo_nif:export_relations/2`
+ - [x] `cozo_backup`  with `cozo_nif:backup/2`
+ - [x] `cozo_restore`  with `cozo_nif:restore/2`
+ - [x] `cozo_import_from_backup`  with `cozo_nif:import_backup/2`
+
 ## Build
 
 ```sh
@@ -30,9 +41,13 @@ sudo cp c_src/libcozo_c.so /usr/lib
 rebar3 compile
 ```
 
+## Test
+
+```sh
+make clean && make all && rebar3 ct
+```
+
 ## Usage
-
-
 
 ```erlang
 % open a new database in memory 
