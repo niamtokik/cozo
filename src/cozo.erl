@@ -45,7 +45,7 @@ open() -> open(mem, "/tmp/cozo_mem.db").
       Path :: string(),
       Return :: {ok, Db} | {error, open_error},
       Db :: pos_integer().
-      
+
 open(Engine, Path) ->
   case {Engine, Path} of
     {mem, Path} ->
@@ -70,7 +70,7 @@ open(Engine, Path) ->
 -spec close(Db) -> Return when
       Db :: pos_integer(),
       Return :: ok | {error, close_error}.
-      
+
 close(Db)
   when is_integer(Db) ->
     cozo_nif:close_db(Db).

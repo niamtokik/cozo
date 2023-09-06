@@ -57,11 +57,11 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
   }
 
   // create a new db with engine, path without options.
-  int db_id;  
+  int db_id;
   if (!cozo_open_db(engine, path, "", &db_id)) {
     return enif_make_tuple2(env, atom_ok(env), enif_make_int(env, db_id));
   }
-  
+
   return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "open_error"));
 }
 
@@ -81,7 +81,7 @@ static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
   return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "close_error"));
 }
 
-/* 
+/*
  * cozo_run_query interface
  */
 extern char *cozo_run_query(int32_t db_id, const char *script_raw, const char *params_raw, bool immutable_query);
@@ -89,7 +89,7 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
   int db_id;
   // const char *params_raw;
   // bool immutable_query;
-  
+
   if (!enif_get_int(env, argv[0], &db_id)) {
     return enif_make_badarg(env);
   }
@@ -130,11 +130,11 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
   // free the memory mainte
   cozo_free_str(cozo_result);
-  
+
   return enif_make_tuple2(env, atom_ok(env), result_string);
 }
 
-/* 
+/*
  * cozo_import_relations interface
  */
 extern char *cozo_import_relations(int32_t db_id, const char *json_payload);
@@ -160,7 +160,7 @@ static ERL_NIF_TERM import_relations_db(ErlNifEnv *env, int argc, const ERL_NIF_
   return enif_make_tuple2(env, atom_ok(env), result_string);
 }
 
-/* 
+/*
  * cozo_export_relations interface
  */
 extern char *cozo_export_relations(int32_t db_id, const char *json_payload);
@@ -186,7 +186,7 @@ static ERL_NIF_TERM export_relations_db(ErlNifEnv *env, int argc, const ERL_NIF_
   return enif_make_tuple2(env, atom_ok(env), result_string);
 }
 
-/* 
+/*
  * cozo_backup interface
  */
 extern char *cozo_backup(int32_t db_id, const char *out_path);
@@ -212,7 +212,7 @@ static ERL_NIF_TERM backup_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
   return enif_make_tuple2(env, atom_ok(env), result_string);
 }
 
-/* 
+/*
  * cozo_restore interface
  */
 extern char *cozo_restore(int32_t db_id, const char *in_path);
@@ -238,7 +238,7 @@ static ERL_NIF_TERM restore_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
   return enif_make_tuple2(env, atom_ok(env), result_string);
 }
 
-/* 
+/*
  * cozo_import_from_backup interface
  */
 extern char *cozo_import_from_backup(int32_t db_id, const char *json_payload);
@@ -265,7 +265,7 @@ static ERL_NIF_TERM import_backup_db(ErlNifEnv *env, int argc, const ERL_NIF_TER
 }
 
 
-/* 
+/*
  * exporter NIFs
  */
 static ErlNifFunc nif_funcs[] =
