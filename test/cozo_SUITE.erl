@@ -8,14 +8,30 @@
 -include_lib("common_test/include/ct.hrl").
 
 % helper to create ok queries
--define(QUERY_OK(N,Q), {ok, N} = cozo:open(),
-                       {ok, _} = cozo:run(N, Q),
-                       ok = cozo:close(N)).
+-define(QUERY_OK(N,Q),
+        begin
+	  (fun() ->
+	             {ok, N} = cozo:open(),
+	             {ok, E} = cozo:run(N, Q),
+		     LogFormat = "db: ~p~nquery: ~s~nresult: ~p",
+		     LogArgs = [N, Q, E],
+		     ct:pal(info, ?LOW_IMPORTANCE, LogFormat, LogArgs),
+                     ok = cozo:close(N)
+           end)()
+        end).
 
 % helper to create error queries
--define(QUERY_ERROR(N,Q), {ok, N} = cozo:open(),
-	                  {error, _} = cozo:run(N, Q),
-                          ok = cozo:close(N)).
+-define(QUERY_ERROR(N,Q),
+        begin
+	  (fun() ->
+	             {ok, N} = cozo:open(),
+	             {error, E} = cozo:run(N, Q),
+		     LogFormat = "db: ~p~nquery: ~s~nresult: ~p",
+		     LogArgs = [N, Q, E],
+		     ct:pal(info, ?LOW_IMPORTANCE, LogFormat, LogArgs),
+                     ok = cozo:close(N)
+           end)()
+        end).
 
 -define(IQUERY_LOG(DB, QUERY),
 	begin

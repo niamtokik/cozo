@@ -10,6 +10,20 @@
 -export([import_relations/2, export_relations/2]).
 -export([backup/2, restore/2, import_backup/2]).
 
+% manage relations
+-export([list_relations/1]).
+-export([remove_relation/2, remove_relations/2]).
+-export([create_relation/3, replace_relation/3]).
+-export([put_row/3, update_row/3, remove_row/3]).
+-export([ensure_row/3, ensure_not_row/3]).
+
+% extra management functions
+-export([list_columns/2, list_indices/2]).
+-export([explain/2, describe/3]).
+-export([show_triggers/2]).
+-export([set_access_level/3, set_access_levels/3]).
+-export([get_running_queries/1, kill/2, compact/1]).
+
 %%--------------------------------------------------------------------
 %% @doc open the database with mem engine.
 %%
@@ -164,6 +178,8 @@ run(Db, Query, Params, Mutable)
 %%--------------------------------------------------------------------
 %% @doc import relations as json.
 %%
+%% see https://docs.cozodb.org/en/latest/nonscript.html#API.import_relations
+%%
 %% == Examples ==
 %%
 %% ```
@@ -174,11 +190,11 @@ run(Db, Query, Params, Mutable)
 %%--------------------------------------------------------------------
 -spec import_relations(Db, Json) -> Return when
       Db :: pos_integer(),
-      Json :: map(),
+      Json :: map() | list(),
       Return :: term().
 
 import_relations(Db, Json)
-  when is_integer(Db) andalso is_map(Json) ->
+  when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
     case thoas:encode(Json) of
       {ok, EncodedJson} ->
         cozo_nif:import_relations_db(Db, binary_to_list(EncodedJson) ++ "\n");
@@ -187,6 +203,8 @@ import_relations(Db, Json)
 
 %%--------------------------------------------------------------------
 %% @doc export database relationships from json as map.
+%%
+%% see https://docs.cozodb.org/en/latest/nonscript.html#API.export_relations
 %%
 %% == Examples ==
 %%
@@ -198,11 +216,11 @@ import_relations(Db, Json)
 %%--------------------------------------------------------------------
 -spec export_relations(Db, Json) -> Return when
       Db :: pos_integer(),
-      Json :: map(),
+      Json :: map() | list(),
       Return :: term().
 
 export_relations(Db, Json)
-  when is_integer(Db) andalso is_map(Json) ->
+  when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
     case thoas:encode(Json) of
       {ok, EncodedJson} ->
         AsList = binary_to_list(EncodedJson) ++ "\n",
@@ -212,6 +230,8 @@ export_relations(Db, Json)
 
 %%--------------------------------------------------------------------
 %% @doc backup a database to a file.
+%%
+%% see https://docs.cozodb.org/en/latest/nonscript.html#API.backup
 %%
 %% == Examples ==
 %%
@@ -233,6 +253,8 @@ backup(Db, OutPath)
 %%--------------------------------------------------------------------
 %% @doc restore a database based from a backup path.
 %%
+%% see https://docs.cozodb.org/en/latest/nonscript.html#API.restore
+%%
 %% == Examples ==
 %%
 %% ```
@@ -252,6 +274,8 @@ restore(Db, InPath)
 
 %%--------------------------------------------------------------------
 %% @doc import a database backup from json like object as map.
+%%
+%% see https://docs.cozodb.org/en/latest/nonscript.html#API.import_from_backup
 %%
 %% == Examples ==
 %%
@@ -274,6 +298,163 @@ import_backup(Db, Json)
         cozo_nif:import_backup_db(Db, binary_to_list(EncodedJson) ++ "\n");
       Elsewise -> Elsewise
     end.
+
+%%--------------------------------------------------------------------
+%% @doc returns the list of relations
+%% @end
+%%--------------------------------------------------------------------
+list_relations(Db) ->
+  run(Db, "::relations").
+
+%%--------------------------------------------------------------------
+%% @doc explain a query.
+%% @end
+%%--------------------------------------------------------------------
+explain(Db, Query) ->
+  Command = string:join(["::explain", "{", Query, "}"], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc list columns
+%% @end
+%%--------------------------------------------------------------------
+list_columns(Db, Name) ->
+  Command = string:join(["::columns", Name], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc list indices
+%% @end
+%%--------------------------------------------------------------------
+list_indices(Db, Name) ->
+  Command = string:join(["::indices", Name], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc describe a relation.
+%% @end
+%%--------------------------------------------------------------------
+describe(Db, Name, Description) ->
+  Command = string:join(["::describe", Name, Description ++ "?"], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc remove a stored relation.
+%% @end
+%%--------------------------------------------------------------------
+remove_relation(Db, Name) ->
+  Command = string:join(["::remove", Name], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc remove a stored relations.
+%% @end
+%%--------------------------------------------------------------------
+remove_relations(Db, Names) ->
+  Relations = string:join(Names, ","),
+  run(Db, Relations).
+
+%%--------------------------------------------------------------------
+%% @doc Display triggers
+%% @end
+%%--------------------------------------------------------------------
+show_triggers(Db, Name) ->
+  Command = string:join(["::show_triggers", Name], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+set_access_level(Db, Level, Name) ->
+  Command = string:join(["::access_level", Level, Name], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+set_access_levels(Db, Level, Names) ->
+  Relations = string:join(Names, ","),
+  set_access_level(Db, Level, Relations).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+get_running_queries(Db) ->
+  run(Db, "::running").
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+kill(Db, Id) ->
+  Command = string:join(["::kill", Id], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+compact(Db) ->
+  run(Db, "::compact").
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+create_relation(Db, Name, Spec) ->
+  Command = string:join([":create", Name, Spec], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+replace_relation(Db, Name, Spec) ->
+  Command = string:join([":replace", Name, Spec], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+put_row(Db, Name, Spec) ->
+  Command = string:join([":put", Name, Spec], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+update_row(Db, Name, Spec) ->
+  Command = string:join([":update", Name, Spec], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+remove_row(Db, Name, Spec) ->
+  Command = string:join([":rm", Name, Spec], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+ensure_row(Db, Name, Spec) ->
+  Command = string:join([":ensure", Name, Spec], " "),
+  run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+ensure_not_row(Db, Name, Spec) ->
+  Command = string:join([":ensure_not", Name, Spec], " "),
+  run(Db, Command).
 
 %%--------------------------------------------------------------------
 %% @hidden
