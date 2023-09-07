@@ -39,6 +39,12 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
   }
 
+  // get option length
+  int options_length;
+  if (!(enif_get_string_length(env, argv[2], &options_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+
   // extract the engine string
   char *engine = enif_alloc(engine_length);
   if (!(enif_get_string(env, argv[0], engine, engine_length, ERL_NIF_UTF8))) {
@@ -51,9 +57,15 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
   }
 
+  // extract the option string
+  char *options = enif_alloc(options_length);
+  if (!(enif_get_string(env, argv[2], options, options_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+  
   // create a new db with engine, path without options.
   int db_id;
-  if (!cozo_open_db(engine, path, "", &db_id)) {
+  if (!cozo_open_db(engine, path, options, &db_id)) {
     return enif_make_tuple2(env, atom_ok(env), enif_make_int(env, db_id));
   }
 
@@ -262,7 +274,7 @@ static ERL_NIF_TERM import_backup_db(ErlNifEnv *env, int argc, const ERL_NIF_TER
  */
 static ErlNifFunc nif_funcs[] =
   {
-   {"open_db", 2, open_db},
+   {"open_db", 3, open_db},
    {"close_db", 1, close_db},
    {"run_query", 4, run_query},
    {"import_relations_db", 2, import_relations_db},
