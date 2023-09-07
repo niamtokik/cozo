@@ -3,7 +3,7 @@
 %%% @doc
 %%% @end
 %%%-------------------------------------------------------------------
--module(cozo_SUITE).
+-module(cozo_db_SUITE).
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 
@@ -11,15 +11,14 @@
 -define(QUERY_OK(N,Q),
         begin
             (fun() ->
-                     {ok, {N, R}} = cozo:open(),
-                     {ok, E} = cozo:run(N, Q),
+                     {ok, N} = cozo_db:start([]),
+                     {ok, E} = cozo_db:run(N, Q),
                      LogFormat = "db: ~p~n"
                          "query: ~s~n"
-                         "result: ~p~n"
-                         "state: ~p",
-                     LogArgs = [N, Q, E, R],
+                         "result: ~p~n",
+                     LogArgs = [N, Q, E],
                      ct:pal(info, ?LOW_IMPORTANCE, LogFormat, LogArgs),
-                     ok = cozo:close(N)
+                     ok = cozo_db:stop(N)
              end)()
         end).
 
@@ -27,22 +26,21 @@
 -define(QUERY_ERROR(N,Q),
         begin
             (fun() ->
-                     {ok, {N, R}} = cozo:open(),
-                     {error, E} = cozo:run(N, Q),
+                     {ok, N} = cozo_db:start([]),
+                     {error, E} = cozo_db:run(N, Q),
                      LogFormat = "db: ~p~n"
                          "query: ~s~n"
-                         "result: ~p~n"
-                         "state: ~p~n",
-                     LogArgs = [N, Q, E, R],
+                         "result: ~p~n",
+                     LogArgs = [N, Q, E],
                      ct:pal(info, ?LOW_IMPORTANCE, LogFormat, LogArgs),
-                     ok = cozo:close(N)
+                     ok = cozo_db:stop(N)
              end)()
         end).
 
 -define(IQUERY_LOG(DB, QUERY),
         begin
             (fun() ->
-                     {ok, R} = cozo:run(DB, QUERY),
+                     {ok, R} = cozo_db:run(DB, QUERY),
                      LogFormat = "db: ~p~nquery: ~s~nresult: ~p",
                      LogArgs = [DB,QUERY,R],
                      ct:pal(info, ?LOW_IMPORTANCE, LogFormat, LogArgs)
@@ -216,7 +214,7 @@ tutorial_joins(_Config) ->
 %%--------------------------------------------------------------------
 tutorial_stored_relations() -> [].
 tutorial_stored_relations(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     ?IQUERY_LOG(Db, ":create stored {c1, c2}"),
     ?IQUERY_LOG(Db, ":create dept_info {"
                 "company_name: String,"
@@ -245,26 +243,26 @@ tutorial_stored_relations(_Config) ->
     ?IQUERY_LOG(Db, "::remove stored"),
     ?IQUERY_LOG(Db, "::relations"),
     ?IQUERY_LOG(Db, "::remove fd"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Command-blocks
 %%--------------------------------------------------------------------
 tutorial_command_blocks() -> [].
 tutorial_command_blocks(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     ?IQUERY_LOG(Db, "{?[a] <- [[1], [2], [3]]; :replace test {a}}"
                 "{?[a] <- []; :replace test2 {a}}"
                 "%swap test test2"
                 "%return test"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Graphs
 %%--------------------------------------------------------------------
 tutorial_graphs() -> [].
 tutorial_graphs(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     ?IQUERY_LOG(Db, "?[loving, loved] <- [['alice', 'eve'],"
                 "['bob', 'alice'],"
                 "['eve', 'alice'],"
@@ -285,14 +283,14 @@ tutorial_graphs(_Config) ->
                 "?[loved_by_b_e] := *love['bob', loved_by_b_e],"
                 "loved_by_b_e != 'bob',"
                 "loved_by_b_e != 'eve'"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Negation
 %%--------------------------------------------------------------------
 tutorial_negation() -> [].
 tutorial_negation(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     %% @todo: crash
     %% ?IQUERY_LOG(Db, "?[loved] := *love[person, loved], !ends_with(person, 'e')"),
     %% ?IQUERY_LOG(Db, "?[loved_by_e_not_b] := *love['eve', loved_by_e_not_b],"
@@ -302,14 +300,14 @@ tutorial_negation(_Config) ->
     %%         "the_population[p] := *love[_a, p]"
     %%         "?[not_loved_by_b] := the_population[not_loved_by_b],"
     %%         "not *love['bob', not_loved_by_b]"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Recursion
 %%--------------------------------------------------------------------
 tutorial_recursion() -> [].
 tutorial_recursion(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     %% @todo: crash
     %% ?IQUERY_LOG(Db, "alice_love_chain[person] := *love['alice', person]"
     %%         "alice_love_chain[person] := alice_love_chain[in_person],"
@@ -318,55 +316,55 @@ tutorial_recursion(_Config) ->
     %% ?IQUERY_LOG(Db, "alice_love_chain[person] := alice_love_chain[in_person],"
     %%         "*love[in_person, person]"
     %%         "?[chained] := alice_love_chain[chained]"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Aggregation
 %%--------------------------------------------------------------------
 tutorial_aggregation() -> [].
 tutorial_aggregation(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     %% @todo: crash
     %% ?IQUERY_LOG(Db, "?[loving, loved] := *love{ loving, loved }"
     %%    ":limit 1"),
     %% ?IQUERY_LOG(Db, "?[loving, loved] := *love{ loving, loved }\n"
     %%    ":order -loved, loving\n"
     %%    ":offset 1"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Query-options
 %%--------------------------------------------------------------------
 tutorial_query_options() -> [].
 tutorial_query_options(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     %% @todo: crash
     %% ?IQUERY_LOG(Db, "?[loving, loved] := *love{ loving, loved }"
     %%    ":limit 1"),
     %% ?IQUERY_LOG(Db, "?[loving, loved] := *love{ loving, loved }"
     %%    ":order -loved, loving"
     %%    ":offset 1"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Fixed-rules
 %%--------------------------------------------------------------------
 tutorial_fixed_rules() -> [].
 tutorial_fixed_rules(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     ?IQUERY_LOG(Db, "?[] <~ Constant(data: [['hello', 'world', 'Cozo!']])"),
     %% @todo: crash
     %% ?IQUERY_LOG(Db, "?[person, page_rank] <~ PageRank(*love[])\n"
     %%		":order -page_rank"),
     %% ?IQUERY_LOG(Db, "::remove love"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Extended-example:-the-air-routes-dataset
 %%--------------------------------------------------------------------
 air_routes() -> [].
 air_routes(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+    {ok, Db} = cozo_db:start([]),
     ?IQUERY_LOG(Db, "{:create airport {"
                 "code: String"
                 "=>"
@@ -393,7 +391,7 @@ air_routes(_Config) ->
                 "}}"),
     ?IQUERY_LOG(Db, "{:create contain { entity: String, contained: String }}"),
     ?IQUERY_LOG(Db, "{:create route { fr: String, to: String => dist: Float }}"),
-    ok = cozo:close(Db).
+    ok = cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% Function: TestCase() -> Info
@@ -410,9 +408,9 @@ simple() -> [].
 %% Comment = term()
 %%--------------------------------------------------------------------
 simple(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
-    {ok, _} = cozo:run(Db, "?[] <- [[1, 2, 3]]"),
-    cozo:close(Db).
+    {ok, Db} = cozo_db:start([]),
+    {ok, _} = cozo_db:run(Db, "?[] <- [[1, 2, 3]]"),
+    cozo_db:stop(Db).
 
 %%--------------------------------------------------------------------
 %% Function: TestCase() -> Info
@@ -436,8 +434,8 @@ multi_spawn(_Config) ->
     ].
 
 cozo_spawn(Counter) ->
-  Open = fun() -> {ok, {Db, _R}} = cozo:open(), Db end,
+  Open = fun() -> {ok, Db} = cozo_db:start([]), Db end,
   Dbs = [ Open() || _ <- lists:seq(1, Counter) ],
-  Run = fun(Db) -> spawn(cozo_nif, run, [Db, "?[] <- [[1, 2, 3]]"]) end,
+  Run = fun(Db) -> spawn(cozo_db, run, [Db, "?[] <- [[1, 2, 3]]"]) end,
   [ Run(Db) || Db <- Dbs ],
-  [ cozo:close(Db) || Db <- Dbs ].
+  [ cozo_db:stop(Db) || Db <- Dbs ].

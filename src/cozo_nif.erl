@@ -14,6 +14,7 @@
       , import_relations_db/2, export_relations_db/2
       , backup_db/2, restore_db/2, import_backup_db/2
       ]).
+-include_lib("kernel/include/logger.hrl").
 -on_load(init/0).
 
 %%--------------------------------------------------------------------
@@ -29,9 +30,10 @@ init() -> init("cozo_nif").
 %% @end
 %%--------------------------------------------------------------------
 init(Path) ->
-  Priv = priv_dir(),
-  Lib = filename:join(Priv, Path),
-  ok = erlang:load_nif(Lib, 0).
+    Priv = code:priv_dir(cozo),
+    Lib = filename:join(Priv, Path),
+    ?LOG_DEBUG("~p", [{self(), ?MODULE, init, [Path]}]),
+    ok = erlang:load_nif(Lib, 0).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -40,7 +42,7 @@ init(Path) ->
 %% @end
 %%--------------------------------------------------------------------
 open_db(_Engine, _Path, _Options) ->
-  exit(nif_library_not_loaded).
+    exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -48,8 +50,8 @@ open_db(_Engine, _Path, _Options) ->
 %% see https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L62
 %% @end
 %%--------------------------------------------------------------------
-run_query(_Id, _Script, _Params, _Immutable) ->
-  exit(nif_library_not_loaded).
+run_query(_Id, _Script, _Params, _Mutable) ->
+    exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -58,7 +60,7 @@ run_query(_Id, _Script, _Params, _Immutable) ->
 %% @end
 %%--------------------------------------------------------------------
 close_db(_Id) ->
-  exit(nif_library_not_loaded).
+    exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -66,7 +68,7 @@ close_db(_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 import_relations_db(_Id, _Json) ->
-  exit(nif_library_not_loaded).
+    exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -74,7 +76,7 @@ import_relations_db(_Id, _Json) ->
 %% @end
 %%--------------------------------------------------------------------
 export_relations_db(_Id, _Json) ->
-  exit(nif_library_not_loaded).
+    exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -82,7 +84,7 @@ export_relations_db(_Id, _Json) ->
 %% @end
 %%--------------------------------------------------------------------
 backup_db(_Id, _Path) ->
-  exit(nif_library_not_loaded).
+    exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -90,7 +92,7 @@ backup_db(_Id, _Path) ->
 %% @end
 %%--------------------------------------------------------------------
 restore_db(_Id, _Path) ->
-  exit(nif_library_not_loaded).
+    exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -98,32 +100,4 @@ restore_db(_Id, _Path) ->
 %% @end
 %%--------------------------------------------------------------------
 import_backup_db(_Id, _Path) ->
-  exit(nif_library_not_loaded).
-
-
-
-
-
-%% =============================================================================
-%% PRiVATE
-%% =============================================================================
-
-
-%% -----------------------------------------------------------------------------
-%% @private
-%% @doc
-%% Returns the app's priv dir
-%% @end
-%% -----------------------------------------------------------------------------
-priv_dir() ->
-    case code:priv_dir(cozo) of
-        {error, bad_name} ->
-            case code:which(?MODULE) of
-                FN when is_list(FN) ->
-                  filename:join([filename:dirname(FN), "..", "priv"]);
-                _ ->
-                  "../priv"
-            end;
-        Val ->
-            Val
-    end.
+    exit(nif_library_not_loaded).

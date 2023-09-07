@@ -1,6 +1,16 @@
 # cozo
 
+![Cozo License](https://img.shields.io/github/license/niamtokik/cozo)
+![Cozo Top Language](https://img.shields.io/github/languages/top/niamtokik/cozo)
+![Cozo Workflow Status (main branch)](https://img.shields.io/github/actions/workflow/status/niamtokik/cozo/test.yaml?branch=main)
+![Cozo Last Commit](https://img.shields.io/github/last-commit/niamtokik/cozo)
+![Cozo Code Size (bytes)](https://img.shields.io/github/languages/code-size/niamtokik/cozo)
+![Cozo Repository File Count](https://img.shields.io/github/directory-file-count/niamtokik/cozo)
+![Cozo Repository Size](https://img.shields.io/github/repo-size/niamtokik/cozo)
+
 A quick and dirty NIF interface to cozodb.
+
+This Erlang application
 
 ## Support
 
@@ -24,7 +34,8 @@ A quick and dirty NIF interface to cozodb.
    - [ ] test `cozo:backup` function
    - [ ] test `cozo:restore` function
    - [ ] test `cozo:import_backup` function
- - [ ] Create test sutie for `cozo_nif` module
+ - [x] Create `cozo_db` module to deal with strong isolation
+ - [ ] Create test suite for `cozo_nif` module
  - [ ] Specify interfaces
  - [ ] Add property based testing support
  - [ ] Add Dialyzer support
@@ -68,12 +79,34 @@ Open a shell with `make`
 make shell
 ```
 
+If you want to create a totally isolated database in its own process,
+you can use `cozo_db` module.
+
 ```erlang
 % open a new database in memory
-{ok,0} = cozo:open().
+{ok, Pid} = cozo_db:start([]).
 
 % run a query
-3>
+{ok,#{ <<"headers">> => [<<"_0">>,<<"_1">>,<<"_2">>],
+       <<"next">> => null,
+       <<"ok">> => true,
+       <<"rows">> => [[1,2,3]],
+       <<"took">> => 0.001401927
+     }
+} = cozo_db:run(Pid, "?[] <- [[1, 2, 3]]").
+
+% close the database
+ok = cozo_db:stop(Pid).
+```
+
+If you want to create more than one process and you don't care about
+isolation, you can use `cozo` module.
+
+```erlang
+% open a new database in memory
+{ok, {0, _}} = cozo:open().
+
+% run a query
 {ok,#{ <<"headers">> => [<<"_0">>,<<"_1">>,<<"_2">>],
        <<"next">> => null,
        <<"ok">> => true,
@@ -85,3 +118,13 @@ make shell
 % close the database
 ok = cozo:close(Db).
 ```
+
+If you want an access to a low level interface, you can also use
+`cozo_nif` module.
+
+## References
+
+ - [Official CozoDB Website](https://www.cozodb.org/)
+ - [Official CozoDB Documentation](https://docs.cozodb.org/en/latest/)
+ - [Official CozoDB Repository](https://github.com/cozodb/cozo)
+ - [Erlang NIF](https://www.erlang.org/doc/tutorial/nif.html)

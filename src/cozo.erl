@@ -4,6 +4,8 @@
 %%% @end
 %%%===================================================================
 -module(cozo).
+
+% API.
 -export([open/0, open/1, open/2, open/3]).
 -export([close/1]).
 -export([run/2,run/3,run/4]).
@@ -23,19 +25,11 @@
 -export([get_triggers/2]).
 -export([set_access_level/3, set_access_levels/3]).
 -export([get_running_queries/1, kill/2, compact/1]).
+-export([create_filepath/3]).
 
-% define cozo types and records.
--type db_id()         :: pos_integer().
--type db_engine()     :: mem | sqlite | rocksdb.
--type db_path()       :: string().
--type db_options()    :: map().
--type db_parent()     :: pid().
--record(?MODULE, { id = undefined        :: undefined | db_id()
-                 , db_engine = mem       :: db_engine()
-                 , db_path = ""          :: db_path()
-                 , db_options = #{}      :: db_options()
-                 , db_parent = undefined :: undefined | db_parent()
-                 }).
+% includes.
+-include_lib("kernel/include/logger.hrl").
+-include("cozo.hrl").
 
 %%--------------------------------------------------------------------
 %% @doc open the database with mem engine, with random path and default
@@ -46,7 +40,7 @@
 %% ```
 %% rr(cozo)
 %% {ok, {0, State}} = cozo:open().
-%% #cozo{ id = 0 
+%% #cozo{ id = 0
 %%      , db_engine = mem
 %%      , db_path = "/tmp/cozodb_Lq4yHM0RbGxbIwlyPBcNPyqPEj7O4msJ"
 %%      , db_options = #{}
@@ -60,7 +54,7 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec open() -> Return when
-      Return :: {ok, {db_id(), #?MODULE{}}} 
+      Return :: {ok, {db_id(), #?MODULE{}}}
               | {error, term()}.
 
 open() -> open(mem).
@@ -90,11 +84,11 @@ open() -> open(mem).
 %%--------------------------------------------------------------------
 -spec open(Engine) -> Return when
       Engine :: db_engine(),
-      Return :: {ok, {db_id(), #?MODULE{}}} 
+      Return :: {ok, {db_id(), #?MODULE{}}}
               | {error, term()}.
 
 open(Engine) ->
-    Path = random_filepath("/tmp", "cozodb_", 32),
+    Path = create_filepath("/tmp", "cozodb_", 32),
     open(Engine, Path).
 
 %%--------------------------------------------------------------------
@@ -112,7 +106,7 @@ open(Engine) ->
 -spec open(Engine, Path) -> Return when
       Engine :: db_engine(),
       Path :: db_path(),
-      Return :: {ok, {db_id(), #?MODULE{}}} 
+      Return :: {ok, {db_id(), #?MODULE{}}}
               | {error, term()}.
 
 open(Engine, Path) ->
@@ -133,7 +127,7 @@ open(Engine, Path) ->
       Engine :: db_engine(),
       Path :: db_path(),
       DbOptions :: db_options(),
-      Return :: {ok, {db_id(), #?MODULE{}}} 
+      Return :: {ok, {db_id(), #?MODULE{}}}
               | {error, term()}.
 
 open(Engine, Path, DbOptions) ->
@@ -144,17 +138,19 @@ open(Engine, Path, DbOptions) ->
 %% @doc validate supported engine.
 %% @end
 %%--------------------------------------------------------------------
-open1(mem, Path, DbOptions, State) -> 
+open1(mem, Path, DbOptions, State) ->
     NewState = State#?MODULE{ db_engine = mem },
     open2("mem\n", Path, DbOptions, NewState);
-open1(sqlite, Path, DbOptions, State) -> 
+open1(sqlite, Path, DbOptions, State) ->
     NewState = State#?MODULE{ db_engine = sqlite },
     open2("sqlite\n", Path, DbOptions, NewState);
-open1(rocksdb, Path, DbOptions,  State) -> 
+open1(rocksdb, Path, DbOptions,  State) ->
     NewState = State#?MODULE{ db_engine = rocksdb },
     open2("rocksdb\n", Path, DbOptions, NewState);
-open1(Engine, _, _, _) -> 
-    {error, {bad_engine,  Engine}}.
+open1(Engine, _, _, _) ->
+    Reason = {bad_engine,  Engine},
+    ?LOG_ERROR("~p~n", [{?MODULE, open1, Reason}]),
+    {error, Reason}.
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -162,12 +158,20 @@ open1(Engine, _, _, _) ->
 %% @todo check if the path exist (or not).
 %% @end
 %%--------------------------------------------------------------------
-open2(Engine, Path, DbOptions, State) 
+open2(Engine, Path, DbOptions, State)
   when is_list(Path) ->
-    NewState = State#?MODULE{ db_path = Path },
-    open3(Engine, Path ++ "\n", DbOptions, NewState);
+    DirName = filename:dirname(Path),
+    case filelib:ensure_dir(DirName) of
+        ok ->
+            NewState = State#?MODULE{ db_path = Path },
+            open3(Engine, Path ++ "\n", DbOptions, NewState);
+        Elsewise ->
+            Elsewise
+    end;
 open2(_, Path, _, _) ->
-    {error, {bad_path, Path}}.
+    Reason = {bad_path, Path},
+    ?LOG_ERROR("~p~n", [{?MODULE, open2, Reason}]),
+    {error, Reason}.
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -176,7 +180,7 @@ open2(_, Path, _, _) ->
 %%--------------------------------------------------------------------
 open3(Engine, Path, DbOptions, State)
   when is_map(DbOptions) ->
-    try 
+    try
         Json = thoas:encode(DbOptions),
         EncodedOptions = binary_to_list(Json) ++ "\n",
         NewState = State#?MODULE{ db_options = DbOptions },
@@ -186,7 +190,9 @@ open3(Engine, Path, DbOptions, State)
             {error, Reason}
     end;
 open3(_, _, DbOptions, _) ->
-    {error, {bad_options, DbOptions}}.
+    Reason = {bad_options, DbOptions},
+    ?LOG_ERROR("~p~n", [{?MODULE, open3, Reason}]),
+    {error, Reason}.
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -196,11 +202,13 @@ open3(_, _, DbOptions, _) ->
 open_nif(Engine, Path, DbOptions, State) ->
     case cozo_nif:open_db(Engine, Path, DbOptions) of
         {ok, DbId} ->
-            NewState = State#?MODULE{ id = DbId 
+            NewState = State#?MODULE{ id = DbId
                                     , db_parent = self()
                                     },
+            ?LOG_DEBUG("~p", [{?MODULE, open_nif, NewState}]),
             {ok, {DbId, NewState}};
         Elsewise ->
+            ?LOG_ERROR("~p", [{?MODULE, open_nif, Elsewise}]),
             Elsewise
     end.
 
@@ -221,6 +229,7 @@ open_nif(Engine, Path, DbOptions, State) ->
 
 close(Db)
   when is_integer(Db) ->
+    ?LOG_DEBUG("~p", [{?MODULE, close, [Db]}]),
     cozo_nif:close_db(Db).
 
 %%--------------------------------------------------------------------
@@ -246,7 +255,7 @@ close(Db)
       Return :: {ok, string()} | {error, term()}.
 
 run(Db, Query) ->
-  run(Db, Query, #{}, true).
+    run(Db, Query, #{}, true).
 
 %%--------------------------------------------------------------------
 %% @doc run a query on defined db with custom params. Immutability is
@@ -272,7 +281,7 @@ run(Db, Query) ->
       Return :: {ok, string()} | {error, term()}.
 
 run(Db, Query, Params) ->
-  run(Db, Query, Params, true).
+    run(Db, Query, Params, true).
 
 %%--------------------------------------------------------------------
 %% @doc run a query.
@@ -303,12 +312,12 @@ run(Db, Query, Params, Mutable)
     NewQuery = Query ++ "\n",
     NewParams = binary_to_list(thoas:encode(Params)) ++ "\n",
     case {NewQuery, NewParams, Mutable} of
-      {"\n", "\n", _} ->
-        {error, "no query and no params"};
-      {NewQuery, NewParams, true} ->
-        run_query_parser(Db, NewQuery, NewParams, 0);
-      {NewQuery, NewParams, false} ->
-        run_query_parser(Db, NewQuery, NewParams, 1)
+        {"\n", "\n", _} ->
+            {error, "no query and no params"};
+        {NewQuery, NewParams, true} ->
+            run_query_parser(Db, NewQuery, NewParams, 0);
+        {NewQuery, NewParams, false} ->
+            run_query_parser(Db, NewQuery, NewParams, 1)
     end.
 
 %%--------------------------------------------------------------------
@@ -332,9 +341,9 @@ run(Db, Query, Params, Mutable)
 import_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
     case thoas:encode(Json) of
-      {ok, EncodedJson} ->
-        cozo_nif:import_relations_db(Db, binary_to_list(EncodedJson) ++ "\n");
-      Elsewise -> Elsewise
+        {ok, EncodedJson} ->
+            cozo_nif:import_relations_db(Db, binary_to_list(EncodedJson) ++ "\n");
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -358,10 +367,10 @@ import_relations(Db, Json)
 export_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
     case thoas:encode(Json) of
-      {ok, EncodedJson} ->
-        AsList = binary_to_list(EncodedJson) ++ "\n",
-        cozo_nif:export_relations_db(Db, AsList);
-      Elsewise -> Elsewise
+        {ok, EncodedJson} ->
+            AsList = binary_to_list(EncodedJson) ++ "\n",
+            cozo_nif:export_relations_db(Db, AsList);
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -430,9 +439,9 @@ restore(Db, InPath)
 import_backup(Db, Json)
   when is_integer(Db) andalso is_map(Json) ->
     case thoas:encode(Json) of
-      {ok, EncodedJson} ->
-        cozo_nif:import_backup_db(Db, binary_to_list(EncodedJson) ++ "\n");
-      Elsewise -> Elsewise
+        {ok, EncodedJson} ->
+            cozo_nif:import_backup_db(Db, binary_to_list(EncodedJson) ++ "\n");
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -447,10 +456,12 @@ import_backup(Db, Json)
 %% @end
 %%--------------------------------------------------------------------
 list_relations(Db) ->
-  run(Db, "::relations").
+    run(Db, "::relations").
 
 %%--------------------------------------------------------------------
 %% @doc explain a query.
+%%
+%% see https://docs.cozodb.org/en/latest/sysops.html#explain
 %%
 %% == Examples ==
 %%
@@ -462,11 +473,11 @@ list_relations(Db) ->
 %% @end
 %%--------------------------------------------------------------------
 explain(Db, Query) ->
-  Command = string:join(["::explain", "{", Query, "}"], " "),
-  run(Db, Command).
+    Command = string:join(["::explain", "{", Query, "}"], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc list columns
+%% @doc List all columns for the stored relation.
 %%
 %% == Examples ==
 %%
@@ -477,11 +488,11 @@ explain(Db, Query) ->
 %% @end
 %%--------------------------------------------------------------------
 list_columns(Db, Name) ->
-  Command = string:join(["::columns", Name], " "),
-  run(Db, Command).
+    Command = string:join(["::columns", Name], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc list indices
+%% @doc List all indices for the stored relation.
 %%
 %% == Examples ==
 %%
@@ -492,11 +503,11 @@ list_columns(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 list_indices(Db, Name) ->
-  Command = string:join(["::indices", Name], " "),
-  run(Db, Command).
+    Command = string:join(["::indices", Name], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc describe a relation.
+%% @doc Describe the stored relation and store it in the metadata.
 %%
 %% == Examples ==
 %%
@@ -507,8 +518,8 @@ list_indices(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 describe(Db, Name, Description) ->
-  Command = string:join(["::describe", Name, Description ++ "?"], " "),
-  run(Db, Command).
+    Command = string:join(["::describe", Name, Description ++ "?"], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
 %% @doc remove a stored relation.
@@ -522,8 +533,8 @@ describe(Db, Name, Description) ->
 %% @end
 %%--------------------------------------------------------------------
 remove_relation(Db, Name) ->
-  Command = string:join(["::remove", Name], " "),
-  run(Db, Command).
+    Command = string:join(["::remove", Name], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
 %% @doc remove a stored relations.
@@ -537,8 +548,8 @@ remove_relation(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 remove_relations(Db, Names) ->
-  Relations = string:join(Names, ","),
-  run(Db, Relations).
+    Relations = string:join(Names, ","),
+    run(Db, Relations).
 
 %%--------------------------------------------------------------------
 %% @doc Display triggers
@@ -552,8 +563,8 @@ remove_relations(Db, Names) ->
 %% @end
 %%--------------------------------------------------------------------
 get_triggers(Db, Name) ->
-  Command = string:join(["::show_triggers", Name], " "),
-  run(Db, Command).
+    Command = string:join(["::show_triggers", Name], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -567,8 +578,8 @@ get_triggers(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 set_access_level(Db, Level, Name) ->
-  Command = string:join(["::access_level", Level, Name], " "),
-  run(Db, Command).
+    Command = string:join(["::access_level", Level, Name], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -582,11 +593,11 @@ set_access_level(Db, Level, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 set_access_levels(Db, Level, Names) ->
-  Relations = string:join(Names, ","),
-  set_access_level(Db, Level, Relations).
+    Relations = string:join(Names, ","),
+    set_access_level(Db, Level, Relations).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Display running queries and their id.
 %%
 %% == Examples ==
 %%
@@ -597,10 +608,10 @@ set_access_levels(Db, Level, Names) ->
 %% @end
 %%--------------------------------------------------------------------
 get_running_queries(Db) ->
-  run(Db, "::running").
+    run(Db, "::running").
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Kill a running query specified by id.
 %%
 %% == Examples ==
 %%
@@ -611,11 +622,11 @@ get_running_queries(Db) ->
 %% @end
 %%--------------------------------------------------------------------
 kill(Db, Id) ->
-  Command = string:join(["::kill", Id], " "),
-  run(Db, Command).
+    Command = string:join(["::kill", Id], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Instructs Cozo to run a compaction job.
 %%
 %% == Examples ==
 %%
@@ -626,10 +637,11 @@ kill(Db, Id) ->
 %% @end
 %%--------------------------------------------------------------------
 compact(Db) ->
-  run(Db, "::compact").
+    run(Db, "::compact").
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Create a stored relation with the given name and spec. No
+%% stored relation with the same name can exist beforehand.
 %%
 %% == Examples ==
 %%
@@ -640,11 +652,12 @@ compact(Db) ->
 %% @end
 %%--------------------------------------------------------------------
 create_relation(Db, Name, Spec) ->
-  Command = string:join([":create", Name, Spec], " "),
-  run(Db, Command).
+    Command = string:join([":create", Name, Spec], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Similar to :create, except that if the named stored relation
+%% exists beforehand, it is completely replaced.
 %%
 %% == Examples ==
 %%
@@ -655,11 +668,12 @@ create_relation(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 replace_relation(Db, Name, Spec) ->
-  Command = string:join([":replace", Name, Spec], " "),
-  run(Db, Command).
+    Command = string:join([":replace", Name, Spec], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Put rows from the resulting relation into the named stored
+%% relation.
 %%
 %% == Examples ==
 %%
@@ -670,11 +684,11 @@ replace_relation(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 put_row(Db, Name, Spec) ->
-  Command = string:join([":put", Name, Spec], " "),
-  run(Db, Command).
+    Command = string:join([":put", Name, Spec], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Update rows in the named stored relation.
 %%
 %% == Examples ==
 %%
@@ -685,11 +699,11 @@ put_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 update_row(Db, Name, Spec) ->
-  Command = string:join([":update", Name, Spec], " "),
-  run(Db, Command).
+    Command = string:join([":update", Name, Spec], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Remove rows from the named stored relation.
 %%
 %% == Examples ==
 %%
@@ -700,11 +714,14 @@ update_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 remove_row(Db, Name, Spec) ->
-  Command = string:join([":rm", Name, Spec], " "),
-  run(Db, Command).
+    Command = string:join([":rm", Name, Spec], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Ensure that rows specified by the output relation and spec
+%% exist in the database, and that no other process has written to
+%% these rows when the enclosing transaction commits. Useful for
+%% ensuring read-write consistency.
 %%
 %% == Examples ==
 %%
@@ -715,11 +732,13 @@ remove_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 ensure_row(Db, Name, Spec) ->
-  Command = string:join([":ensure", Name, Spec], " "),
-  run(Db, Command).
+    Command = string:join([":ensure", Name, Spec], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Ensure that rows specified by the output relation and spec do
+%% not exist in the database and that no other process has written to
+%% these rows when the enclosing transaction commits.
 %%
 %% == Examples ==
 %%
@@ -730,8 +749,8 @@ ensure_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 ensure_not_row(Db, Name, Spec) ->
-  Command = string:join([":ensure_not", Name, Spec], " "),
-  run(Db, Command).
+    Command = string:join([":ensure_not", Name, Spec], " "),
+    run(Db, Command).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -739,10 +758,10 @@ ensure_not_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 run_query_parser(Db, Query, Params, Mutability) ->
-  case cozo_nif:run_query(Db, Query, Params, Mutability) of
-    {ok, Result} -> decode_json(Result);
-    Elsewise -> Elsewise
-  end.
+    case cozo_nif:run_query(Db, Query, Params, Mutability) of
+        {ok, Result} -> decode_json(Result);
+        Elsewise -> Elsewise
+    end.
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -751,9 +770,9 @@ run_query_parser(Db, Query, Params, Mutability) ->
 %%--------------------------------------------------------------------
 decode_json(Message) ->
     case thoas:decode(Message) of
-  {ok, Decoded} -> {ok, Decoded};
-  {error, Error} -> {error, {Error, Message}};
-  Elsewise -> Elsewise
+        {ok, Decoded} -> {ok, Decoded};
+        {error, Error} -> {error, {Error, Message}};
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -761,20 +780,20 @@ decode_json(Message) ->
 %% @doc generate a random filename
 %% @end
 %%--------------------------------------------------------------------
--spec random_filepath(Path, Prefix, Length) -> Return when
+-spec create_filepath(Path, Prefix, Length) -> Return when
       Path :: string(),
       Prefix :: string(),
       Length :: pos_integer(),
       Return :: string().
 
-random_filepath(Path, Prefix, Length) ->
-    Alphabet = 
+create_filepath(Path, Prefix, Length) ->
+    Alphabet =
         "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "0123456789",
     AlphabetLength = length(Alphabet),
     RandomString = crypto:strong_rand_bytes(Length),
-    RandomName = [ lists:nth((X rem AlphabetLength)+1, Alphabet) 
+    RandomName = [ lists:nth((X rem AlphabetLength)+1, Alphabet)
                    || <<X>> <= RandomString ],
     PrefixName = Prefix ++ RandomName,
     filename:join([Path, PrefixName]).
