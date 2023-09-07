@@ -4,42 +4,98 @@
 %%% @end
 %%%===================================================================
 -module(cozo).
--export([open/0, open/2]).
+-export([open/0, open/1, open/2, open/3]).
 -export([close/1]).
 -export([run/2,run/3,run/4]).
 -export([import_relations/2, export_relations/2]).
 -export([backup/2, restore/2, import_backup/2]).
 
-% manage relations
+% manage relations.
 -export([list_relations/1]).
 -export([remove_relation/2, remove_relations/2]).
 -export([create_relation/3, replace_relation/3]).
 -export([put_row/3, update_row/3, remove_row/3]).
 -export([ensure_row/3, ensure_not_row/3]).
 
-% extra management functions
+% extra management functions.
 -export([list_columns/2, list_indices/2]).
 -export([explain/2, describe/3]).
 -export([get_triggers/2]).
 -export([set_access_level/3, set_access_levels/3]).
 -export([get_running_queries/1, kill/2, compact/1]).
 
+% define cozo types and records.
+-type db_id()         :: pos_integer().
+-type db_engine()     :: mem | sqlite | rocksdb.
+-type db_path()       :: string().
+-type db_options()    :: map().
+-type db_parent()     :: pid().
+-record(?MODULE, { id = undefined        :: undefined | db_id()
+                 , db_engine = mem       :: db_engine()
+                 , db_path = ""          :: db_path()
+                 , db_options = #{}      :: db_options()
+                 , db_parent = undefined :: undefined | db_parent()
+                 }).
+
 %%--------------------------------------------------------------------
-%% @doc open the database with mem engine.
+%% @doc open the database with mem engine, with random path and default
+%%      options.
 %%
 %% == Examples ==
 %%
 %% ```
-%% {ok, 0} = cozo:open().
+%% rr(cozo)
+%% {ok, {0, State}} = cozo:open().
+%% #cozo{ id = 0 
+%%      , db_engine = mem
+%%      , db_path = "/tmp/cozodb_Lq4yHM0RbGxbIwlyPBcNPyqPEj7O4msJ"
+%%      , db_options = #{}
+%%      , db_parent = <0.161>
+%% } = State.
 %% '''
 %%
+%% @see open/1
+%% @see open/2
+%% @see open/3
 %% @end
 %%--------------------------------------------------------------------
 -spec open() -> Return when
-      Return :: {ok, Db} | {error, open_error},
-      Db :: pos_integer().
+      Return :: {ok, {db_id(), #?MODULE{}}} 
+              | {error, term()}.
 
-open() -> open(mem, "/tmp/cozo_mem.db").
+open() -> open(mem).
+
+%%--------------------------------------------------------------------
+%% @doc open a new database with custom engine and random path. The
+%% random path is set to `/tmp` by default and the filename is prefixed
+%% by `cozodb_'.
+%%
+%% == Examples ==
+%%
+%% ```
+%% rr(cozo).
+%% {ok {0, #cozo{ db_path = Path }}} = open(mem).
+%% "/tmp/cozodb_aPmybeM4XTudF5qJPnG5hJusV2Evq5au" = Path.
+%%
+%% {ok, {1, #cozo{ db_path = SqlitePath }}} = open(sqlite).
+%% "/tmp/cozodb_TDE4dQKtiXHIUjWyNEaAo1f7LAxrYk4O" = SqlitePath.
+%%
+%% {ok, {1, #cozo{ db_path = RocksDbPath }}} = open(rocksdb).
+%% "/tmp/cozodb_S8jAUccVnge0cKfci9FYvjrK1O6fAO1S" = RocksDbPath
+%% '''
+%%
+%% @see open/2
+%% @see open/3
+%% @end
+%%--------------------------------------------------------------------
+-spec open(Engine) -> Return when
+      Engine :: db_engine(),
+      Return :: {ok, {db_id(), #?MODULE{}}} 
+              | {error, term()}.
+
+open(Engine) ->
+    Path = random_filepath("/tmp", "cozodb_", 32),
+    open(Engine, Path).
 
 %%--------------------------------------------------------------------
 %% @doc open a database with a custom engine and path.
@@ -47,26 +103,106 @@ open() -> open(mem, "/tmp/cozo_mem.db").
 %% == Examples ==
 %%
 %% ```
-%% {ok, 0} = cozo:open(mem, "/tmp/database.db").
+%% {ok, {0, State}} = cozo:open(sqlite, "/tmp/database.db").
+%% '''
+%%
+%% @see open/3
+%% @end
+%%--------------------------------------------------------------------
+-spec open(Engine, Path) -> Return when
+      Engine :: db_engine(),
+      Path :: db_path(),
+      Return :: {ok, {db_id(), #?MODULE{}}} 
+              | {error, term()}.
+
+open(Engine, Path) ->
+    open(Engine, Path, #{}).
+
+%%--------------------------------------------------------------------
+%% @doc open a new databse with custom path and options.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, {0, State}} = cozo:open(rocksdb, "/tmp/rocks.db", #{}).
 %% '''
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec open(Engine, Path) -> Return when
-      Engine :: mem | sqlite | rocksdb,
-      Path :: string(),
-      Return :: {ok, Db} | {error, open_error},
-      Db :: pos_integer().
+-spec open(Engine, Path, DbOptions) -> Return when
+      Engine :: db_engine(),
+      Path :: db_path(),
+      DbOptions :: db_options(),
+      Return :: {ok, {db_id(), #?MODULE{}}} 
+              | {error, term()}.
 
-open(Engine, Path) ->
-  case {Engine, Path} of
-    {mem, Path} ->
-      cozo_nif:open_db("mem\n", Path ++ "\n");
-    {sqlite, Path} ->
-      cozo_nif:open_db("sqlite\n", Path ++ "\n");
-    {rocksdb, Path} ->
-      cozo_nif:open_db("rocksdb\n", Path ++ "\n")
-  end.
+open(Engine, Path, DbOptions) ->
+    open1(Engine, Path, DbOptions, #?MODULE{}).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc validate supported engine.
+%% @end
+%%--------------------------------------------------------------------
+open1(mem, Path, DbOptions, State) -> 
+    NewState = State#?MODULE{ db_engine = mem },
+    open2("mem\n", Path, DbOptions, NewState);
+open1(sqlite, Path, DbOptions, State) -> 
+    NewState = State#?MODULE{ db_engine = sqlite },
+    open2("sqlite\n", Path, DbOptions, NewState);
+open1(rocksdb, Path, DbOptions,  State) -> 
+    NewState = State#?MODULE{ db_engine = rocksdb },
+    open2("rocksdb\n", Path, DbOptions, NewState);
+open1(Engine, _, _, _) -> 
+    {error, {bad_engine,  Engine}}.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc validate path.
+%% @todo check if the path exist (or not).
+%% @end
+%%--------------------------------------------------------------------
+open2(Engine, Path, DbOptions, State) 
+  when is_list(Path) ->
+    NewState = State#?MODULE{ db_path = Path },
+    open3(Engine, Path ++ "\n", DbOptions, NewState);
+open2(_, Path, _, _) ->
+    {error, {bad_path, Path}}.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc check DbOptions and convert it to json.
+%% @end
+%%--------------------------------------------------------------------
+open3(Engine, Path, DbOptions, State)
+  when is_map(DbOptions) ->
+    try 
+        Json = thoas:encode(DbOptions),
+        EncodedOptions = binary_to_list(Json) ++ "\n",
+        NewState = State#?MODULE{ db_options = DbOptions },
+        open_nif(Engine, Path, EncodedOptions, NewState)
+    catch
+        _Error:Reason ->
+            {error, Reason}
+    end;
+open3(_, _, DbOptions, _) ->
+    {error, {bad_options, DbOptions}}.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc open the nif and return db state.
+%% @end
+%%--------------------------------------------------------------------
+open_nif(Engine, Path, DbOptions, State) ->
+    case cozo_nif:open_db(Engine, Path, DbOptions) of
+        {ok, DbId} ->
+            NewState = State#?MODULE{ id = DbId 
+                                    , db_parent = self()
+                                    },
+            {ok, {DbId, NewState}};
+        Elsewise ->
+            Elsewise
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc close an opened database.
@@ -619,3 +755,26 @@ decode_json(Message) ->
   {error, Error} -> {error, {Error, Message}};
   Elsewise -> Elsewise
     end.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc generate a random filename
+%% @end
+%%--------------------------------------------------------------------
+-spec random_filepath(Path, Prefix, Length) -> Return when
+      Path :: string(),
+      Prefix :: string(),
+      Length :: pos_integer(),
+      Return :: string().
+
+random_filepath(Path, Prefix, Length) ->
+    Alphabet = 
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "0123456789",
+    AlphabetLength = length(Alphabet),
+    RandomString = crypto:strong_rand_bytes(Length),
+    RandomName = [ lists:nth((X rem AlphabetLength)+1, Alphabet) 
+                   || <<X>> <= RandomString ],
+    PrefixName = Prefix ++ RandomName,
+    filename:join([Path, PrefixName]).

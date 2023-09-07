@@ -6,13 +6,13 @@
 %%% @end
 %%%===================================================================
 -module(cozo_nif).
--export([open_db/2, close_db/1, run_query/4
-        ,import_relations_db/2, export_relations_db/2
-        ,backup_db/2, restore_db/2, import_backup_db/2
+-export([ open_db/3, close_db/1, run_query/4
+        , import_relations_db/2, export_relations_db/2
+        , backup_db/2, restore_db/2, import_backup_db/2
         ]).
--nifs([open_db/2, close_db/1, run_query/4
-      ,import_relations_db/2, export_relations_db/2
-      ,backup_db/2, restore_db/2, import_backup_db/2
+-nifs([ open_db/3, close_db/1, run_query/4
+      , import_relations_db/2, export_relations_db/2
+      , backup_db/2, restore_db/2, import_backup_db/2
       ]).
 -on_load(init/0).
 
@@ -39,7 +39,7 @@ init(Path) ->
 %% see https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L35
 %% @end
 %%--------------------------------------------------------------------
-open_db(_Engine, _Path) ->
+open_db(_Engine, _Path, _Options) ->
   exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
