@@ -82,7 +82,7 @@ COZO_HEADER_URL = $(COZO_REPOSITORY)/v$(COZO_VERSION)/$(COZO_HEADER_NAME)
 ################################################################################
 # COMPILER Configuration
 ################################################################################
-CC_FLAGS ?= -I $(ERTS_INCLUDE_DIR) -L $(ERL_INTERFACE_LIB_DIR)
+CC_FLAGS ?= -O3 -std=c99 -finline-functions -Wall -Wmissing-prototypes -I $(ERTS_INCLUDE_DIR) -L $(ERL_INTERFACE_LIB_DIR)
 CC_INCLUDE = -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(LOCAL_DIR)/c_src -I $(LOCAL_DIR)/$(PRIV_DIR)
 LDLIBS = -L $(LOCAL_DIR)/c_src -L $(LOCAL_DIR)/$(PRIV_DIR)
 CC_OPTS ?= $(CC_INCLUDE) $(LDLIBS) -lei -lcozo_c -fPIC $(CC_FLAGS) $(LDFLAGS)
