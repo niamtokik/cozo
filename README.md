@@ -8,9 +8,8 @@
 ![Cozo Repository File Count](https://img.shields.io/github/directory-file-count/niamtokik/cozo)
 ![Cozo Repository Size](https://img.shields.io/github/repo-size/niamtokik/cozo)
 
-A quick and dirty NIF interface to cozodb.
+This is an Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS embeddable, transactional, relational-graph-vector database, with time travelling capability, perfect as the long-term memory for LLMs and AI.
 
-This Erlang application
 
 ## Support
 
@@ -65,10 +64,16 @@ make test
 
 ## Documentation
 
-A short documentation
+Generate the project documentation.
 
 ```sh
 make doc
+```
+
+Open the documentation.
+
+```sh
+open doc/index.html
 ```
 
 ## Usage
