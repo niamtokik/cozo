@@ -1,5 +1,35 @@
 %%%===================================================================
+%%% Copyright (c) 2023 Mathieu Kerjouan
+%%%
+%%% Redistribution and use in source and binary forms, with or without
+%%% modification, are permitted provided that the following conditions
+%%% are met:
+%%%
+%%% 1. Redistributions of source code must retain the above copyright
+%%% notice, this list of conditions and the following disclaimer.
+%%%
+%%% 2. Redistributions in binary form must reproduce the above
+%%% copyright notice, this list of conditions and the following
+%%% disclaimer in the documentation and/or other materials provided
+%%% with the distribution.
+%%%
+%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+%%% CONTRIBUTORS “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES,
+%%% INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+%%% MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+%%% DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+%%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+%%% EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+%%% TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+%%% DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+%%% ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+%%% TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+%%% THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+%%% SUCH DAMAGE.
+%%%
+%%% @copyright 2023 Mathieu Kerjouan
 %%% @author Mathieu Kerjouan
+%%%
 %%% @doc Main interface to CozoDB Erlang NIF `cozo_nif' module.
 %%% @end
 %%%===================================================================
@@ -55,7 +85,7 @@
 %%--------------------------------------------------------------------
 -spec open() -> Return when
       Return :: {ok, {db_id(), #?MODULE{}}}
-              | {error, term()}.
+	      | {error, term()}.
 
 open() -> open(mem).
 
@@ -85,7 +115,7 @@ open() -> open(mem).
 -spec open(Engine) -> Return when
       Engine :: db_engine(),
       Return :: {ok, {db_id(), #?MODULE{}}}
-              | {error, term()}.
+	      | {error, term()}.
 
 open(Engine) ->
     Path = create_filepath("/tmp", "cozodb_", 32),
@@ -107,7 +137,7 @@ open(Engine) ->
       Engine :: db_engine(),
       Path :: db_path(),
       Return :: {ok, {db_id(), #?MODULE{}}}
-              | {error, term()}.
+	      | {error, term()}.
 
 open(Engine, Path) ->
     open(Engine, Path, #{}).
@@ -128,7 +158,7 @@ open(Engine, Path) ->
       Path :: db_path(),
       DbOptions :: db_options(),
       Return :: {ok, {db_id(), #?MODULE{}}}
-              | {error, term()}.
+	      | {error, term()}.
 
 open(Engine, Path, DbOptions) ->
     open1(Engine, Path, DbOptions, #?MODULE{}).
@@ -162,11 +192,11 @@ open2(Engine, Path, DbOptions, State)
   when is_list(Path) ->
     DirName = filename:dirname(Path),
     case filelib:ensure_dir(DirName) of
-        ok ->
-            NewState = State#?MODULE{ db_path = Path },
-            open3(Engine, Path ++ "\n", DbOptions, NewState);
-        Elsewise ->
-            Elsewise
+	ok ->
+	    NewState = State#?MODULE{ db_path = Path },
+	    open3(Engine, Path ++ "\n", DbOptions, NewState);
+	Elsewise ->
+	    Elsewise
     end;
 open2(_, Path, _, _) ->
     Reason = {bad_path, Path},
@@ -181,13 +211,13 @@ open2(_, Path, _, _) ->
 open3(Engine, Path, DbOptions, State)
   when is_map(DbOptions) ->
     try
-        Json = thoas:encode(DbOptions),
-        EncodedOptions = binary_to_list(Json) ++ "\n",
-        NewState = State#?MODULE{ db_options = DbOptions },
-        open_nif(Engine, Path, EncodedOptions, NewState)
+	Json = thoas:encode(DbOptions),
+	EncodedOptions = binary_to_list(Json) ++ "\n",
+	NewState = State#?MODULE{ db_options = DbOptions },
+	open_nif(Engine, Path, EncodedOptions, NewState)
     catch
-        _Error:Reason ->
-            {error, Reason}
+	_Error:Reason ->
+	    {error, Reason}
     end;
 open3(_, _, DbOptions, _) ->
     Reason = {bad_options, DbOptions},
@@ -201,15 +231,15 @@ open3(_, _, DbOptions, _) ->
 %%--------------------------------------------------------------------
 open_nif(Engine, Path, DbOptions, State) ->
     case cozo_nif:open_db(Engine, Path, DbOptions) of
-        {ok, DbId} ->
-            NewState = State#?MODULE{ id = DbId
-                                    , db_parent = self()
-                                    },
-            ?LOG_DEBUG("~p", [{?MODULE, open_nif, NewState}]),
-            {ok, {DbId, NewState}};
-        Elsewise ->
-            ?LOG_ERROR("~p", [{?MODULE, open_nif, Elsewise}]),
-            Elsewise
+	{ok, DbId} ->
+	    NewState = State#?MODULE{ id = DbId
+				    , db_parent = self()
+				    },
+	    ?LOG_DEBUG("~p", [{?MODULE, open_nif, NewState}]),
+	    {ok, {DbId, NewState}};
+	Elsewise ->
+	    ?LOG_ERROR("~p", [{?MODULE, open_nif, Elsewise}]),
+	    Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -312,12 +342,12 @@ run(Db, Query, Params, Mutable)
     NewQuery = Query ++ "\n",
     NewParams = binary_to_list(thoas:encode(Params)) ++ "\n",
     case {NewQuery, NewParams, Mutable} of
-        {"\n", "\n", _} ->
-            {error, "no query and no params"};
-        {NewQuery, NewParams, true} ->
-            run_query_parser(Db, NewQuery, NewParams, 0);
-        {NewQuery, NewParams, false} ->
-            run_query_parser(Db, NewQuery, NewParams, 1)
+	{"\n", "\n", _} ->
+	    {error, "no query and no params"};
+	{NewQuery, NewParams, true} ->
+	    run_query_parser(Db, NewQuery, NewParams, 0);
+	{NewQuery, NewParams, false} ->
+	    run_query_parser(Db, NewQuery, NewParams, 1)
     end.
 
 %%--------------------------------------------------------------------
@@ -341,9 +371,9 @@ run(Db, Query, Params, Mutable)
 import_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
     case thoas:encode(Json) of
-        {ok, EncodedJson} ->
-            cozo_nif:import_relations_db(Db, binary_to_list(EncodedJson) ++ "\n");
-        Elsewise -> Elsewise
+	{ok, EncodedJson} ->
+	    cozo_nif:import_relations_db(Db, binary_to_list(EncodedJson) ++ "\n");
+	Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -367,10 +397,10 @@ import_relations(Db, Json)
 export_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
     case thoas:encode(Json) of
-        {ok, EncodedJson} ->
-            AsList = binary_to_list(EncodedJson) ++ "\n",
-            cozo_nif:export_relations_db(Db, AsList);
-        Elsewise -> Elsewise
+	{ok, EncodedJson} ->
+	    AsList = binary_to_list(EncodedJson) ++ "\n",
+	    cozo_nif:export_relations_db(Db, AsList);
+	Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -439,9 +469,9 @@ restore(Db, InPath)
 import_backup(Db, Json)
   when is_integer(Db) andalso is_map(Json) ->
     case thoas:encode(Json) of
-        {ok, EncodedJson} ->
-            cozo_nif:import_backup_db(Db, binary_to_list(EncodedJson) ++ "\n");
-        Elsewise -> Elsewise
+	{ok, EncodedJson} ->
+	    cozo_nif:import_backup_db(Db, binary_to_list(EncodedJson) ++ "\n");
+	Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -759,8 +789,8 @@ ensure_not_row(Db, Name, Spec) ->
 %%--------------------------------------------------------------------
 run_query_parser(Db, Query, Params, Mutability) ->
     case cozo_nif:run_query(Db, Query, Params, Mutability) of
-        {ok, Result} -> decode_json(Result);
-        Elsewise -> Elsewise
+	{ok, Result} -> decode_json(Result);
+	Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -770,9 +800,9 @@ run_query_parser(Db, Query, Params, Mutability) ->
 %%--------------------------------------------------------------------
 decode_json(Message) ->
     case thoas:decode(Message) of
-        {ok, Decoded} -> {ok, Decoded};
-        {error, Error} -> {error, {Error, Message}};
-        Elsewise -> Elsewise
+	{ok, Decoded} -> {ok, Decoded};
+	{error, Error} -> {error, {Error, Message}};
+	Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -788,12 +818,12 @@ decode_json(Message) ->
 
 create_filepath(Path, Prefix, Length) ->
     Alphabet =
-        "abcdefghijklmnopqrstuvwxyz"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "0123456789",
+	"abcdefghijklmnopqrstuvwxyz"
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"0123456789",
     AlphabetLength = length(Alphabet),
     RandomString = crypto:strong_rand_bytes(Length),
     RandomName = [ lists:nth((X rem AlphabetLength)+1, Alphabet)
-                   || <<X>> <= RandomString ],
+		   || <<X>> <= RandomString ],
     PrefixName = Prefix ++ RandomName,
     filename:join([Path, PrefixName]).

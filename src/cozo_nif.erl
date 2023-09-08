@@ -1,4 +1,33 @@
 %%%===================================================================
+%%% Copyright (c) 2023 Mathieu Kerjouan
+%%%
+%%% Redistribution and use in source and binary forms, with or without
+%%% modification, are permitted provided that the following conditions
+%%% are met:
+%%%
+%%% 1. Redistributions of source code must retain the above copyright
+%%% notice, this list of conditions and the following disclaimer.
+%%%
+%%% 2. Redistributions in binary form must reproduce the above
+%%% copyright notice, this list of conditions and the following
+%%% disclaimer in the documentation and/or other materials provided
+%%% with the distribution.
+%%%
+%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+%%% CONTRIBUTORS “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES,
+%%% INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+%%% MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+%%% DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+%%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+%%% EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+%%% TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+%%% DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+%%% ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+%%% TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+%%% THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+%%% SUCH DAMAGE.
+%%%
+%%% @copyright 2023 Mathieu Kerjouan
 %%% @author Mathieu Kerjouan
 %%%
 %%% @doc Raw NIF implementation of cozodb. The library must be
@@ -7,9 +36,9 @@
 %%%===================================================================
 -module(cozo_nif).
 -export([ open_db/3, close_db/1, run_query/4
-        , import_relations_db/2, export_relations_db/2
-        , backup_db/2, restore_db/2, import_backup_db/2
-        ]).
+	, import_relations_db/2, export_relations_db/2
+	, backup_db/2, restore_db/2, import_backup_db/2
+	]).
 -nifs([ open_db/3, close_db/1, run_query/4
       , import_relations_db/2, export_relations_db/2
       , backup_db/2, restore_db/2, import_backup_db/2
@@ -111,14 +140,13 @@ import_backup_db(_Id, _Path) ->
 %% -----------------------------------------------------------------------------
 priv_dir() ->
     case code:priv_dir(cozo) of
-        {error, bad_name} ->
-            case code:which(?MODULE) of
-                FN when is_list(FN) ->
-                  filename:join([filename:dirname(FN), "..", "priv"]);
-                _ ->
-                  "../priv"
-            end;
-        Val ->
-            Val
+	{error, bad_name} ->
+	    case code:which(?MODULE) of
+		FN when is_list(FN) ->
+		  filename:join([filename:dirname(FN), "..", "priv"]);
+		_ ->
+		  "../priv"
+	    end;
+	Val ->
+	    Val
     end.
-

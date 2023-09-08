@@ -5,11 +5,11 @@
   {mod, {cozo_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    crypto
    ]},
   {env,[]},
   {modules, []},
-
-  {licenses, ["Apache-2.0"]},
+  {licenses, ["BSD-2-Clause"]},
   {links, ["https://github.com/niamtokik/cozo"]}
  ]}.

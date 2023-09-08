@@ -23,6 +23,7 @@ ifdef ASDF_DIR
 	ASDF_ERLANG_VERSION ?= $(shell asdf current erlang | awk '{print $$2}')
 	ERTS_INCLUDE_DIR ?= $(ASDF_DIR)/installs/erlang/$(ASDF_ERLANG_VERSION)/usr/include
 	ERL_INTERFACE_LIB_DIR ?= $(ASDF_DIR)/installs/erlang/$(ASDF_ERLANG_VERSION)/usr/lib
+	ERL_INTERFACE_INCLUDE_DIR ?= $(ASDF_DIR)/installs/erlang/$(ASDF_ERLANG_VERSION)/usr/include
 else
 	ERL_BIN_DIR ?= $(shell erl -noshell -eval "io:format(\"~ts/erts-~ts/bin/\", [code:root_dir(), erlang:system_info(version)])." -s init stop)
 	ERTS_INCLUDE_DIR ?= $(shell erl -noshell -eval "io:format(\"~ts/erts-~ts/include/\", [code:root_dir(), erlang:system_info(version)])." -s init stop)
@@ -85,7 +86,7 @@ COZO_HEADER_URL = $(COZO_REPOSITORY)/v$(COZO_VERSION)/$(COZO_HEADER_NAME)
 CC_FLAGS ?= -O3 -std=c99 -finline-functions -Wall -Wmissing-prototypes -I $(ERTS_INCLUDE_DIR) -L $(ERL_INTERFACE_LIB_DIR)
 CC_INCLUDE = -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(LOCAL_DIR)/c_src -I $(LOCAL_DIR)/$(PRIV_DIR)
 LDLIBS = -L $(LOCAL_DIR)/c_src -L $(LOCAL_DIR)/$(PRIV_DIR)
-CC_OPTS ?= $(CC_INCLUDE) $(LDLIBS) -lei -lcozo_c -fPIC $(CC_FLAGS) $(LDFLAGS)
+CC_OPTS ?= $(CC_INCLUDE) $(LDLIBS) -Werror -lei -lcozo_c -fPIC $(CC_FLAGS) $(LDFLAGS)
 
 ################################################################################
 # Default Targets

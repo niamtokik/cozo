@@ -1,5 +1,35 @@
 %%%===================================================================
+%%% Copyright (c) 2023 Mathieu Kerjouan
+%%%
+%%% Redistribution and use in source and binary forms, with or without
+%%% modification, are permitted provided that the following conditions
+%%% are met:
+%%%
+%%% 1. Redistributions of source code must retain the above copyright
+%%% notice, this list of conditions and the following disclaimer.
+%%%
+%%% 2. Redistributions in binary form must reproduce the above
+%%% copyright notice, this list of conditions and the following
+%%% disclaimer in the documentation and/or other materials provided
+%%% with the distribution.
+%%%
+%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+%%% CONTRIBUTORS “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES,
+%%% INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+%%% MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+%%% DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+%%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+%%% EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+%%% TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+%%% DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+%%% ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+%%% TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+%%% THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+%%% SUCH DAMAGE.
+%%%
+%%% @copyright 2023 Mathieu Kerjouan
 %%% @author Mathieu Kerjouan
+%%%
 %%% @doc Isolated cozodb in gen_statem process.
 %%% @end
 %%%===================================================================
@@ -8,7 +38,7 @@
 
 % process management.
 -export([start/1, start/2]).
--export([start_monitor/1, start_monitor/2]). 
+-export([start_monitor/1, start_monitor/2]).
 -export([start_link/1, start_link/2]).
 -export([stop/1]).
 
@@ -77,7 +107,7 @@ cast(Pid, Message) -> gen_statem:cast(Pid, Message).
 %% @see cozo:run/2
 %% @end
 %%--------------------------------------------------------------------
-run(Pid, Query) -> 
+run(Pid, Query) ->
     call(Pid, {run, [Query]}).
 
 %%--------------------------------------------------------------------
@@ -85,7 +115,7 @@ run(Pid, Query) ->
 %% @see cozo:run/3
 %% @end
 %%--------------------------------------------------------------------
-run(Pid, Query, Params) -> 
+run(Pid, Query, Params) ->
     call(Pid, {run, [Query, Params]}).
 
 %%--------------------------------------------------------------------
@@ -93,7 +123,7 @@ run(Pid, Query, Params) ->
 %% @see cozo:run/4
 %% @end
 %%--------------------------------------------------------------------
-run(Pid, Query, Params, Mutable) -> 
+run(Pid, Query, Params, Mutable) ->
     call(Pid, {run, [Query, Params, Mutable]}).
 
 %%--------------------------------------------------------------------
@@ -109,7 +139,7 @@ import_relations(Pid, Json) ->
 %% @see cozo:export_relations/2
 %% @end
 %%--------------------------------------------------------------------
-export_relations(Pid, Json) ->    
+export_relations(Pid, Json) ->
     call(Pid, {export_relations, [Json]}).
 
 %%--------------------------------------------------------------------
@@ -303,16 +333,16 @@ callback_mode() -> state_functions.
 init(Args) ->
     Engine = proplists:get_value(engine, Args, mem),
     Path = case proplists:get_value(path, Args) of
-               undefined -> 
-                   cozo:create_filepath("/tmp", "cozodb_server_", 32);
-               Elsewise -> Elsewise
-           end,
+	       undefined ->
+		   cozo:create_filepath("/tmp", "cozodb_server_", 32);
+	       Elsewise -> Elsewise
+	   end,
     Options = proplists:get_value(options, Args, #{}),
     case cozo:open(Engine, Path, Options) of
-        {ok, {_Id, State}} ->
-            {ok, standard, State};
-        Error ->
-            {stop, Error}
+	{ok, {_Id, State}} ->
+	    {ok, standard, State};
+	Error ->
+	    {stop, Error}
     end.
 
 %%--------------------------------------------------------------------
@@ -331,7 +361,7 @@ standard({call, From}, {get, options}, #cozo{ db_options = Options } = Data) ->
     {keep_state, Data, [{reply, From, Options}]};
 standard({call, From}, {get, engine}, #cozo{ db_engine = Engine } = Data) ->
     {keep_state, Data, [{reply, From, Engine}]};
-standard({call, From}, {Function, Args}, Data) 
+standard({call, From}, {Function, Args}, Data)
   when is_atom(Function) andalso is_list(Args) ->
     query(Function, Args, From, Data);
 standard(EventType, EventContent, Data) ->
@@ -344,16 +374,16 @@ standard(EventType, EventContent, Data) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-query(Function, Args, From, #cozo{ id = Id } = Data) 
+query(Function, Args, From, #cozo{ id = Id } = Data)
   when is_atom(Function) andalso is_list(Args) ->
     try
-        CallArgs = [Id|Args],
-        Return = erlang:apply(cozo, Function, CallArgs),
-        ?LOG_DEBUG("~p", [{self(), ?MODULE, query, CallArgs, Return}]),
-        {keep_state, Data, [{reply, From, Return}]}
+	CallArgs = [Id|Args],
+	Return = erlang:apply(cozo, Function, CallArgs),
+	?LOG_DEBUG("~p", [{self(), ?MODULE, query, CallArgs, Return}]),
+	{keep_state, Data, [{reply, From, Return}]}
     catch
-        Error:Reason ->
-            {keep_state, Data, [{reply, From, {Error, Reason}}]}
+	Error:Reason ->
+	    {keep_state, Data, [{reply, From, {Error, Reason}}]}
     end;
 query(Function, Args, From, Data) ->
     ?LOG_ERROR("~p", [{self(), ?MODULE, query, Function, Args}]),
