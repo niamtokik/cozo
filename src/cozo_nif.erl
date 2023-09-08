@@ -46,11 +46,29 @@
 -include_lib("kernel/include/logger.hrl").
 -on_load(init/0).
 
+%---------------------------------------------------------------------
+% local type definition
+%---------------------------------------------------------------------
+-type db_engine() :: string().
+-type db_path() :: string().
+-type db_options() :: string().
+-type db_id() :: pos_integer().
+-type query_script() :: string().
+-type query_params() :: string().
+-type query_mutable() :: 0 | 1.
+-type json() :: string().
+-type nif_return_ok() :: {ok, json()}.
+-type nif_return_error() :: {error, json()}.
+-type nif_return() :: nif_return_ok()
+		    | nif_return_error().
+
 %%--------------------------------------------------------------------
 %% @hidden
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
+-spec init() -> ok.
+
 init() -> init("cozo_nif").
 
 %%--------------------------------------------------------------------
@@ -58,6 +76,10 @@ init() -> init("cozo_nif").
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
+-spec init(Path) -> Return when
+      Path   :: db_path(),
+      Return :: ok.
+	      
 init(Path) ->
     PrivDir = application:get_env(cozo, lib_path, priv_dir()),
     Lib = filename:join(PrivDir, Path),
@@ -70,6 +92,12 @@ init(Path) ->
 %% see https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L35
 %% @end
 %%--------------------------------------------------------------------
+-spec open_db(Engine, Path, Options) -> Return when
+      Engine  :: db_engine(),
+      Path    :: db_path(),
+      Options :: db_options(),
+      Return  :: nif_return().
+
 open_db(_Engine, _Path, _Options) ->
     exit(nif_library_not_loaded).
 
@@ -79,6 +107,13 @@ open_db(_Engine, _Path, _Options) ->
 %% see https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L62
 %% @end
 %%--------------------------------------------------------------------
+-spec run_query(Id, Script, Params, Mutable) -> Return when
+      Id      :: db_id(),
+      Script  :: query_script(),
+      Params  :: query_params(),
+      Mutable :: query_mutable(),
+      Return  :: nif_return().
+
 run_query(_Id, _Script, _Params, _Mutable) ->
     exit(nif_library_not_loaded).
 
@@ -88,6 +123,10 @@ run_query(_Id, _Script, _Params, _Mutable) ->
 %% see https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L45
 %% @end
 %%--------------------------------------------------------------------
+-spec close_db(Id) -> Return when
+      Id     :: db_id(),
+      Return :: nif_return().
+
 close_db(_Id) ->
     exit(nif_library_not_loaded).
 
@@ -96,6 +135,11 @@ close_db(_Id) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
+-spec import_relations_db(Id, Json) -> Return when
+      Id     :: db_id(),
+      Json   :: json(),
+      Return :: nif_return().
+
 import_relations_db(_Id, _Json) ->
     exit(nif_library_not_loaded).
 
@@ -104,6 +148,11 @@ import_relations_db(_Id, _Json) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
+-spec export_relations_db(Id, Json) -> Return when
+      Id     :: db_id(),
+      Json   :: json(),
+      Return :: nif_return().
+
 export_relations_db(_Id, _Json) ->
     exit(nif_library_not_loaded).
 
@@ -112,6 +161,11 @@ export_relations_db(_Id, _Json) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
+-spec backup_db(Id, Path) -> Return when
+      Id     :: db_id(),
+      Path   :: db_path(),
+      Return :: nif_return().
+
 backup_db(_Id, _Path) ->
     exit(nif_library_not_loaded).
 
@@ -120,6 +174,11 @@ backup_db(_Id, _Path) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
+-spec restore_db(Id, Path) -> Return when
+      Id     :: db_id(),
+      Path   :: db_path(),
+      Return :: nif_return().
+
 restore_db(_Id, _Path) ->
     exit(nif_library_not_loaded).
 
@@ -128,9 +187,13 @@ restore_db(_Id, _Path) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
+-spec import_backup_db(Id, Path) -> Return when
+      Id     :: db_id(),
+      Path   :: db_path(),
+      Return :: nif_return().
+
 import_backup_db(_Id, _Path) ->
     exit(nif_library_not_loaded).
-
 
 %% -----------------------------------------------------------------------------
 %% @private
@@ -138,6 +201,8 @@ import_backup_db(_Id, _Path) ->
 %% Returns the app's priv dir
 %% @end
 %% -----------------------------------------------------------------------------
+-spec priv_dir() -> string().
+
 priv_dir() ->
     case code:priv_dir(cozo) of
 	{error, bad_name} ->

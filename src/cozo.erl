@@ -828,10 +828,12 @@ run_query_parser(Db, Query, Params, Mutability) ->
 %%--------------------------------------------------------------------
 decode_json(Message) ->
     Decoder = json_decoder(),
-    case Decoder:decode(Message) of
+    try Decoder:decode(Message) of
 	{ok, Decoded} -> {ok, Decoded};
 	{error, Error} -> {error, {Error, Message}};
 	Elsewise -> Elsewise
+    catch
+	error:_Reason -> {error, Message}
     end.
 
 %%--------------------------------------------------------------------

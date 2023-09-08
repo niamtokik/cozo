@@ -127,6 +127,21 @@ ok = cozo:close(Db).
 If you want an access to a low level interface, you can also use
 `cozo_nif` module.
 
+## Examples
+
+Some examples are present in `examples` directory like a cozo over
+tcp, you can use with telnet or netcat.
+
+```erlang
+c("examples/cozo_tcp.erl").
+{ok, Pid} = cozo_tcp:start().
+```
+
+```shell
+nc localhost 6543
+# ?[] <- [[1,2,3]]
+```
+
 ## References
 
  - [Official CozoDB Website](https://www.cozodb.org/)
