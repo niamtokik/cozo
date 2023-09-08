@@ -30,7 +30,7 @@ init() -> init("cozo_nif").
 %% @end
 %%--------------------------------------------------------------------
 init(Path) ->
-    Priv = code:priv_dir(cozo),
+    Priv = priv_dir(),
     Lib = filename:join(Priv, Path),
     ?LOG_DEBUG("~p", [{self(), ?MODULE, init, [Path]}]),
     ok = erlang:load_nif(Lib, 0).
@@ -101,3 +101,24 @@ restore_db(_Id, _Path) ->
 %%--------------------------------------------------------------------
 import_backup_db(_Id, _Path) ->
     exit(nif_library_not_loaded).
+
+
+%% -----------------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns the app's priv dir
+%% @end
+%% -----------------------------------------------------------------------------
+priv_dir() ->
+    case code:priv_dir(cozo) of
+        {error, bad_name} ->
+            case code:which(?MODULE) of
+                FN when is_list(FN) ->
+                  filename:join([filename:dirname(FN), "..", "priv"]);
+                _ ->
+                  "../priv"
+            end;
+        Val ->
+            Val
+    end.
+
