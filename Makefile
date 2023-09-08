@@ -122,7 +122,7 @@ test:
 
 .PHONY += doc
 doc:
-	$(ENV_BOOTSTRAP) rebar3 edoc
+	$(ENV_BOOTSTRAP) rebar3 ex_doc skip_deps=true
 
 .PHONY += shell
 shell:
