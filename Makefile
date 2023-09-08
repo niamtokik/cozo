@@ -91,7 +91,7 @@ CC_OPTS ?= $(CC_INCLUDE) $(LDLIBS) -lei -lcozo_c -fPIC $(CC_FLAGS) $(LDFLAGS)
 # Default Targets
 ################################################################################
 TARGETS = $(CSRC_DIR)/cozo_c.h \
-	$(PRIV_DIR)/libcozo_c.$(COZO_LIBC_EXT) \
+	$(PRIV_DIR)/libcozo_c.so \
 	$(PRIV_DIR)/cozo_nif.so
 
 # Used to start rebar3 and erlang
