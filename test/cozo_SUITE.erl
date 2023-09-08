@@ -6,6 +6,7 @@
 -module(cozo_SUITE).
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
+-include("cozo.hrl").
 
 % helper to create ok queries
 -define(QUERY_OK(N,Q),
@@ -413,6 +414,81 @@ simple(_Config) ->
     {ok, {Db, _}} = cozo:open(),
     {ok, _} = cozo:run(Db, "?[] <- [[1, 2, 3]]"),
     cozo:close(Db).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+sqlite() -> [].
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+sqlite(_Config) ->
+    % create a new cozo database using sqlite
+    {ok, {Db, #cozo{ db_path = Path }}} = cozo:open(sqlite),
+    true = filelib:is_file(Path),
+    {ok, _} = cozo:run(Db, "?[] <- [[1, 2, 3]]"),    
+    {ok, _} = cozo:create_relations(Db, "stored" "{c1, c2}"),
+    {ok, _} = cozo:run(Db, ":create dept_info {"
+	     "company_name: String,"
+	     "department_name: String,"
+	     "=>"
+	     "head_count: Int default 0,"
+	     "address: String,"
+	     "}"),
+    {ok, _} = cozo:run(Db, "?[a, b, c] <- [[1, 'a', 'A'],"
+		       "[2, 'b', 'B'],"
+		       "[3, 'c', 'C'],"
+		       "[4, 'd', 'D']]"),
+    cozo:close(Db),
+
+    % Reopen the database
+    {ok, {Db2, #cozo{ db_path = Path }}} = cozo:open(sqlite, Path),
+    true = filelib:is_file(Path),
+    {ok, _} = cozo:run(Db2, "?[] <- [[1, 2, 3]]"),
+    {ok, _} = cozo:run(Db2, "?[a, b, c] <- [[1, 'a', 'A'],"
+		       "[2, 'b', 'B'],"
+		       "[3, 'c', 'C'],"
+		       "[4, 'd', 'D']]"),
+    cozo:close(Db2),
+    
+    % cleanup the file
+    file:delete(Path).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+rocksdb() -> [].
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+rocksdb(_Config) ->
+    {ok, {Db, #cozo{ db_path = Path }}} = cozo:open(rocksdb),
+    filelib:is_dir(Path),
+    {ok, _} = cozo:run(Db, "?[] <- [[1, 2, 3]]"),    
+    {ok, _} = cozo:create_relations(Db, "stored" "{c1, c2}"),
+    {ok, _} = cozo:run(Db, ":create dept_info {"
+	     "company_name: String,"
+	     "department_name: String,"
+	     "=>"
+	     "head_count: Int default 0,"
+	     "address: String,"
+	     "}"),
+    {ok, _} = cozo:run(Db, "?[a, b, c] <- [[1, 'a', 'A'],"
+		       "[2, 'b', 'B'],"
+		       "[3, 'c', 'C'],"
+		       "[4, 'd', 'D']]"),
+    cozo:close(Db),
+    
+    {ok, {Db2, #cozo{ db_path = Path }}} = cozo:open(rocksdb, Path),
+    filelib:is_dir(Path),
+    {ok, _} = cozo:run(Db2, "?[] <- [[1, 2, 3]]"),
+    {ok, _} = cozo:run(Db2, "?[a, b, c] <- [[1, 'a', 'A'],"
+		       "[2, 'b', 'B'],"
+		       "[3, 'c', 'C'],"
+		       "[4, 'd', 'D']]"),
+    cozo:close(Db2).
 
 %%--------------------------------------------------------------------
 %% Function: TestCase() -> Info

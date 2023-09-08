@@ -55,15 +55,32 @@
 -export([get_triggers/2]).
 -export([set_access_level/3, set_access_levels/3]).
 -export([get_running_queries/1, kill/2, compact/1]).
+
+% helpers
 -export([create_filepath/3]).
+-export([json_decoder/0, json_encoder/0]).
 
 % includes.
 -include_lib("kernel/include/logger.hrl").
 -include("cozo.hrl").
 
 %%--------------------------------------------------------------------
-%% @doc open the database with mem engine, with random path and default
-%%      options.
+%% @doc returns the default json encoder (thoas)
+%% @end
+%%--------------------------------------------------------------------
+-spec json_encoder() -> atom().
+json_encoder() -> application:get_env(cozo, json_parser, thoas).
+
+%%--------------------------------------------------------------------
+%% @doc returns the default json decoder (thoas)
+%% @end
+%%--------------------------------------------------------------------
+-spec json_decoder() -> atom().
+json_decoder() -> application:get_env(cozo, json_parser, thoas).
+
+%%--------------------------------------------------------------------
+%% @doc open the database with mem engine, with random path and
+%%      default options.
 %%
 %% == Examples ==
 %%
@@ -84,10 +101,12 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec open() -> Return when
-      Return :: {ok, {db_id(), #?MODULE{}}}
+      Return :: {ok, {db_id(), #cozo{}}}
 	      | {error, term()}.
 
-open() -> open(mem).
+open() ->
+    DefaultEngine = application:get_env(cozo, engine, mem),
+    open(DefaultEngine).
 
 %%--------------------------------------------------------------------
 %% @doc open a new database with custom engine and random path. The
@@ -114,11 +133,14 @@ open() -> open(mem).
 %%--------------------------------------------------------------------
 -spec open(Engine) -> Return when
       Engine :: db_engine(),
-      Return :: {ok, {db_id(), #?MODULE{}}}
+      Return :: {ok, {db_id(), #cozo{}}}
 	      | {error, term()}.
 
 open(Engine) ->
-    Path = create_filepath("/tmp", "cozodb_", 32),
+    DefaultPath = application:get_env(cozo, db_path, "/tmp"),
+    DefaultPrefix = application:get_env(cozo, db_filename_prefix, "cozodb_"),
+    DefaultLength = application:get_env(cozo, db_filename_random_length, 32),
+    Path = create_filepath(DefaultPath, DefaultPrefix, DefaultLength),
     open(Engine, Path).
 
 %%--------------------------------------------------------------------
@@ -136,11 +158,12 @@ open(Engine) ->
 -spec open(Engine, Path) -> Return when
       Engine :: db_engine(),
       Path :: db_path(),
-      Return :: {ok, {db_id(), #?MODULE{}}}
+      Return :: {ok, {db_id(), #cozo{}}}
 	      | {error, term()}.
 
 open(Engine, Path) ->
-    open(Engine, Path, #{}).
+    Options = application:get_env(cozo, {Engine, options},  #{}),
+    open(Engine, Path, Options).
 
 %%--------------------------------------------------------------------
 %% @doc open a new databse with custom path and options.
@@ -157,11 +180,11 @@ open(Engine, Path) ->
       Engine :: db_engine(),
       Path :: db_path(),
       DbOptions :: db_options(),
-      Return :: {ok, {db_id(), #?MODULE{}}}
+      Return :: {ok, {db_id(), #cozo{}}}
 	      | {error, term()}.
 
 open(Engine, Path, DbOptions) ->
-    open1(Engine, Path, DbOptions, #?MODULE{}).
+    open1(Engine, Path, DbOptions, #cozo{}).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -169,17 +192,17 @@ open(Engine, Path, DbOptions) ->
 %% @end
 %%--------------------------------------------------------------------
 open1(mem, Path, DbOptions, State) ->
-    NewState = State#?MODULE{ db_engine = mem },
+    NewState = State#cozo{ db_engine = mem },
     open2("mem\n", Path, DbOptions, NewState);
 open1(sqlite, Path, DbOptions, State) ->
-    NewState = State#?MODULE{ db_engine = sqlite },
+    NewState = State#cozo{ db_engine = sqlite },
     open2("sqlite\n", Path, DbOptions, NewState);
 open1(rocksdb, Path, DbOptions,  State) ->
-    NewState = State#?MODULE{ db_engine = rocksdb },
+    NewState = State#cozo{ db_engine = rocksdb },
     open2("rocksdb\n", Path, DbOptions, NewState);
 open1(Engine, _, _, _) ->
     Reason = {bad_engine,  Engine},
-    ?LOG_ERROR("~p~n", [{?MODULE, open1, Reason}]),
+    ?LOG_ERROR("~p~n", [{cozo, open1, Reason}]),
     {error, Reason}.
 
 %%--------------------------------------------------------------------
@@ -193,14 +216,14 @@ open2(Engine, Path, DbOptions, State)
     DirName = filename:dirname(Path),
     case filelib:ensure_dir(DirName) of
 	ok ->
-	    NewState = State#?MODULE{ db_path = Path },
+	    NewState = State#cozo{ db_path = Path },
 	    open3(Engine, Path ++ "\n", DbOptions, NewState);
 	Elsewise ->
 	    Elsewise
     end;
 open2(_, Path, _, _) ->
     Reason = {bad_path, Path},
-    ?LOG_ERROR("~p~n", [{?MODULE, open2, Reason}]),
+    ?LOG_ERROR("~p~n", [{cozo, open2, Reason}]),
     {error, Reason}.
 
 %%--------------------------------------------------------------------
@@ -211,9 +234,10 @@ open2(_, Path, _, _) ->
 open3(Engine, Path, DbOptions, State)
   when is_map(DbOptions) ->
     try
-	Json = thoas:encode(DbOptions),
+	Encoder = json_encoder(),
+	Json = Encoder:encode(DbOptions),
 	EncodedOptions = binary_to_list(Json) ++ "\n",
-	NewState = State#?MODULE{ db_options = DbOptions },
+	NewState = State#cozo{ db_options = DbOptions },
 	open_nif(Engine, Path, EncodedOptions, NewState)
     catch
 	_Error:Reason ->
@@ -221,7 +245,7 @@ open3(Engine, Path, DbOptions, State)
     end;
 open3(_, _, DbOptions, _) ->
     Reason = {bad_options, DbOptions},
-    ?LOG_ERROR("~p~n", [{?MODULE, open3, Reason}]),
+    ?LOG_ERROR("~p~n", [{cozo, open3, Reason}]),
     {error, Reason}.
 
 %%--------------------------------------------------------------------
@@ -232,13 +256,13 @@ open3(_, _, DbOptions, _) ->
 open_nif(Engine, Path, DbOptions, State) ->
     case cozo_nif:open_db(Engine, Path, DbOptions) of
 	{ok, DbId} ->
-	    NewState = State#?MODULE{ id = DbId
+	    NewState = State#cozo{ id = DbId
 				    , db_parent = self()
 				    },
-	    ?LOG_DEBUG("~p", [{?MODULE, open_nif, NewState}]),
+	    ?LOG_DEBUG("~p", [{cozo, open_nif, NewState}]),
 	    {ok, {DbId, NewState}};
 	Elsewise ->
-	    ?LOG_ERROR("~p", [{?MODULE, open_nif, Elsewise}]),
+	    ?LOG_ERROR("~p", [{cozo, open_nif, Elsewise}]),
 	    Elsewise
     end.
 
@@ -259,7 +283,7 @@ open_nif(Engine, Path, DbOptions, State) ->
 
 close(Db)
   when is_integer(Db) ->
-    ?LOG_DEBUG("~p", [{?MODULE, close, [Db]}]),
+    ?LOG_DEBUG("~p", [{cozo, close, [Db]}]),
     cozo_nif:close_db(Db).
 
 %%--------------------------------------------------------------------
@@ -340,7 +364,8 @@ run(Db, Query, Params, Mutable)
   when is_integer(Db) andalso is_list(Query) andalso
        is_map(Params) andalso is_boolean(Mutable) ->
     NewQuery = Query ++ "\n",
-    NewParams = binary_to_list(thoas:encode(Params)) ++ "\n",
+    Encoder = json_encoder(),
+    NewParams = binary_to_list(Encoder:encode(Params)) ++ "\n",
     case {NewQuery, NewParams, Mutable} of
 	{"\n", "\n", _} ->
 	    {error, "no query and no params"};
@@ -370,7 +395,8 @@ run(Db, Query, Params, Mutable)
 
 import_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
-    case thoas:encode(Json) of
+    Encoder = json_encoder(),
+    case Encoder:encode(Json) of
 	{ok, EncodedJson} ->
 	    cozo_nif:import_relations_db(Db, binary_to_list(EncodedJson) ++ "\n");
 	Elsewise -> Elsewise
@@ -396,7 +422,8 @@ import_relations(Db, Json)
 
 export_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
-    case thoas:encode(Json) of
+    Encoder = json_encoder(),
+    case Encoder:encode(Json) of
 	{ok, EncodedJson} ->
 	    AsList = binary_to_list(EncodedJson) ++ "\n",
 	    cozo_nif:export_relations_db(Db, AsList);
@@ -468,7 +495,8 @@ restore(Db, InPath)
 
 import_backup(Db, Json)
   when is_integer(Db) andalso is_map(Json) ->
-    case thoas:encode(Json) of
+    Encoder = json_encoder(),
+    case Encoder:encode(Json) of
 	{ok, EncodedJson} ->
 	    cozo_nif:import_backup_db(Db, binary_to_list(EncodedJson) ++ "\n");
 	Elsewise -> Elsewise
@@ -795,11 +823,12 @@ run_query_parser(Db, Query, Params, Mutability) ->
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc wrapper around JSON decoder.
+%% @doc wrapper around JSON decoder, by default using `thoas'.
 %% @end
 %%--------------------------------------------------------------------
 decode_json(Message) ->
-    case thoas:decode(Message) of
+    Decoder = json_decoder(),
+    case Decoder:decode(Message) of
 	{ok, Decoded} -> {ok, Decoded};
 	{error, Error} -> {error, {Error, Message}};
 	Elsewise -> Elsewise
@@ -808,6 +837,14 @@ decode_json(Message) ->
 %%--------------------------------------------------------------------
 %% @hidden
 %% @doc generate a random filename
+%%
+%% == Examples ==
+%%
+%% ```
+%% "/tmp/prefix_PFin0sRLFiHPt9LU46w1Ei00bvp3b1hv"
+%%   = cozo:create_filepath("/tmp", "prefix_", 32).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec create_filepath(Path, Prefix, Length) -> Return when

@@ -1,14 +1,37 @@
 {application, cozo,
  [{description, "Erlang NIF interface to CozoDB."},
   {vsn, "0.1.0"},
-  {registered, []},
+  {registered, [cozo_sup]},
   {mod, {cozo_app, []}},
   {applications,
    [kernel,
     stdlib,
     crypto
    ]},
-  {env,[]},
+  {env,[ % default path to store cozo databases
+	 {db_path, "/tmp"},
+
+	 % default filename prefix
+	 {db_filename_prefix, "cozodb_"},
+
+	 % default random name length
+	 {db_filename_random_length, 32},
+
+	 % default cozodb engine
+	 {engine, mem},
+
+	 % default json parser
+	 {json_parser, thoas}
+
+	 % default sqlite options
+	 % {{sqlite, options}, #{}},
+
+	 % default rocksdb options
+	 % {{rocksdb, options}, #{}},
+
+	 % custom library path used by cozo_nif.erl
+	 % {lib_path, "/usr/lib"}
+       ]},
   {modules, []},
   {licenses, ["BSD-2-Clause"]},
   {links, ["https://github.com/niamtokik/cozo"]}

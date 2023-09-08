@@ -59,8 +59,8 @@ init() -> init("cozo_nif").
 %% @end
 %%--------------------------------------------------------------------
 init(Path) ->
-    Priv = priv_dir(),
-    Lib = filename:join(Priv, Path),
+    PrivDir = application:get_env(cozo, lib_path, priv_dir()),
+    Lib = filename:join(PrivDir, Path),
     ?LOG_DEBUG("~p", [{self(), ?MODULE, init, [Path]}]),
     ok = erlang:load_nif(Lib, 0).
 
