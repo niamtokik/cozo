@@ -129,6 +129,14 @@ doc:
 shell:
 	$(ENV_BOOTSTRAP) rebar3 shell
 
+.PHONY += cover
+cover:
+	$(ENV_BOOTSTRAP) rebar3 cover
+
+.PHONY += dialyzer
+dialyzer:
+	$(ENV_BOOTSTRAP) rebar3 dialyzer
+
 .PHONY += clean
 clean:
 	-rm $(TARGETS)

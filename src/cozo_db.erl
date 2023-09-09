@@ -341,7 +341,7 @@ init(Args) ->
     case cozo:open(Engine, Path, Options) of
 	{ok, {_Id, State}} ->
 	    {ok, standard, State};
-	Error ->
+	{error, Error} ->
 	    {stop, Error}
     end.
 

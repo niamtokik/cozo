@@ -24,10 +24,10 @@
 	 {json_parser, thoas}
 
 	 % default sqlite options
-	 % {{sqlite, options}, #{}},
+	 % {sqlite_options, #{}},
 
 	 % default rocksdb options
-	 % {{rocksdb, options}, #{}},
+	 % {rocksdb_options, #{}},
 
 	 % custom library path used by cozo_nif.erl
 	 % {lib_path, "/usr/lib"}

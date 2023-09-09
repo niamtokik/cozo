@@ -55,12 +55,12 @@ thoas = cozo:json_decoder().
 
 Databases can use custom options passed as JSON (or `map()` in this
 interface). By default, no options (`#{}`) are passed. This can be
-modified by changing `{sqlite, options}` and `{rocksdb, options}`
+modified by changing `sqlite_options` and `rocksdb_options`
 environment variables.
 
 ```erlang
-application:set_env(cozo, {sqlite, options}, #{ custom_option => <<>> }).
-application:set_env(cozo, {rocksdb, options}, #{ custom_option => <<>> }).
+application:set_env(cozo, sqlite_options, #{ custom_option => <<>> }).
+application:set_env(cozo, rocksdb_options, #{ custom_option => <<>> }).
 ```
 
 The default path to load `cozo_nif.so` file is set to the `priv`

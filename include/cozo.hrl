@@ -4,6 +4,8 @@
 -type db_path()       :: string().
 -type db_options()    :: map().
 -type db_parent()     :: pid().
+-type db_query()      :: string().
+-type query_params()  :: map().
 -record(cozo, { id = undefined        :: undefined | db_id()
               , db_engine = mem       :: db_engine()
               , db_path = ""          :: db_path()

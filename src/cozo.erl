@@ -162,7 +162,13 @@ open(Engine) ->
 	      | {error, term()}.
 
 open(Engine, Path) ->
-    Options = application:get_env(cozo, {Engine, options},  #{}),
+    Options = case Engine of
+		  sqlite ->
+		      application:get_env(cozo, sqlite_options,  #{});
+		  rocksdb ->
+		      application:get_env(cozo, rocksdb_options,  #{});
+		  _ -> #{}
+	      end,
     open(Engine, Path, Options).
 
 %%--------------------------------------------------------------------
@@ -278,13 +284,16 @@ open_nif(Engine, Path, DbOptions, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec close(Db) -> Return when
-      Db :: pos_integer(),
+      Db     :: db_id(),
       Return :: ok | {error, close_error}.
 
 close(Db)
   when is_integer(Db) ->
     ?LOG_DEBUG("~p", [{cozo, close, [Db]}]),
-    cozo_nif:close_db(Db).
+    case cozo_nif:close_db(Db) of
+	ok -> ok;
+	{error, Error} -> {error, Error}
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc run a query on defined db and custom query. No parameters are
@@ -304,9 +313,10 @@ close(Db)
 %% @end
 %%--------------------------------------------------------------------
 -spec run(Db, Query) -> Return when
-      Db :: pos_integer(),
-      Query :: string(),
-      Return :: {ok, string()} | {error, term()}.
+      Db     :: db_id(),
+      Query  :: db_query(),
+      Return :: {ok, string()}
+	      | {error, term()}.
 
 run(Db, Query) ->
     run(Db, Query, #{}, true).
@@ -329,10 +339,11 @@ run(Db, Query) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec run(Db, Query, Params) -> Return when
-      Db :: pos_integer(),
-      Query :: string(),
-      Params :: map(),
-      Return :: {ok, string()} | {error, term()}.
+      Db     :: db_id(),
+      Query  :: db_query(),
+      Params :: query_params(),
+      Return :: {ok, string()}
+	      | {error, term()}.
 
 run(Db, Query, Params) ->
     run(Db, Query, Params, true).
@@ -354,11 +365,12 @@ run(Db, Query, Params) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec run(Db, Query, Params, Mutable) -> Return when
-      Db :: pos_integer(),
-      Query :: string(),
-      Params :: map(),
+      Db      :: db_id(),
+      Query   :: db_query(),
+      Params  :: query_params(),
       Mutable :: boolean(),
-      Return :: {ok, string()} | {error, term()}.
+      Return  :: {ok, string()}
+	       | {error, term()}.
 
 run(Db, Query, Params, Mutable)
   when is_integer(Db) andalso is_list(Query) andalso
@@ -373,7 +385,10 @@ run(Db, Query, Params, Mutable)
 	    run_query_parser(Db, NewQuery, NewParams, 0);
 	{NewQuery, NewParams, false} ->
 	    run_query_parser(Db, NewQuery, NewParams, 1)
-    end.
+    end;
+run(_, _, _, _) ->
+    {error, badarg}.
+
 
 %%--------------------------------------------------------------------
 %% @doc import relations as json.
@@ -513,6 +528,10 @@ import_backup(Db, Json)
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec list_relations(Db) -> Return when
+      Db :: db_id(),
+      Return :: {ok, term()} | {error, term()}.
+
 list_relations(Db) ->
     run(Db, "::relations").
 
@@ -815,6 +834,14 @@ ensure_not_row(Db, Name, Spec) ->
 %% @doc return the result in decoded json.
 %% @end
 %%--------------------------------------------------------------------
+-spec run_query_parser(Db, Query, Params, Mutability) -> Return when
+      Db :: db_id(),
+      Query :: string(),
+      Params :: string(),
+      Mutability :: 0 | 1,
+      Return :: {ok, map()}
+	      | {error, any()}.
+
 run_query_parser(Db, Query, Params, Mutability) ->
     case cozo_nif:run_query(Db, Query, Params, Mutability) of
 	{ok, Result} -> decode_json(Result);
@@ -826,6 +853,11 @@ run_query_parser(Db, Query, Params, Mutability) ->
 %% @doc wrapper around JSON decoder, by default using `thoas'.
 %% @end
 %%--------------------------------------------------------------------
+-spec decode_json(Message) -> Return when
+      Message :: binary() | bitstring(),
+      Return :: {ok, map()}
+	      | {error, term()}.
+
 decode_json(Message) ->
     Decoder = json_decoder(),
     try Decoder:decode(Message) of
