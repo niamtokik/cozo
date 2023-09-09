@@ -315,8 +315,7 @@ close(Db)
 -spec run(Db, Query) -> Return when
       Db     :: db_id(),
       Query  :: db_query(),
-      Return :: {ok, string()}
-	      | {error, term()}.
+      Return :: query_return().
 
 run(Db, Query) ->
     run(Db, Query, #{}, true).
@@ -342,8 +341,7 @@ run(Db, Query) ->
       Db     :: db_id(),
       Query  :: db_query(),
       Params :: query_params(),
-      Return :: {ok, string()}
-	      | {error, term()}.
+      Return :: query_return().
 
 run(Db, Query, Params) ->
     run(Db, Query, Params, true).
@@ -368,13 +366,29 @@ run(Db, Query, Params) ->
       Db      :: db_id(),
       Query   :: db_query(),
       Params  :: query_params(),
-      Mutable :: boolean(),
-      Return  :: {ok, string()}
-	       | {error, term()}.
+      Mutable :: query_mutable(),
+      Return  :: query_return().
 
+run(Db, Query, Params, Mutable)
+  when is_binary(Query) ->
+    run(Db, binary_to_list(Query), Params, Mutable);
+run(_Db, "", _Params, _Mutable) ->
+    {error, empty_query};
+run(Db, [X|_] = Query, Params, Mutable)
+  when is_list(X) ->
+    NewQuery = string:join(Query, "\n"),
+    run(Db, NewQuery, Params, Mutable);
 run(Db, Query, Params, Mutable)
   when is_integer(Db) andalso is_list(Query) andalso
        is_map(Params) andalso is_boolean(Mutable) ->
+    run1(Db, Query, Params, Mutable);
+run(_Db, _Query, _Params, _Mutable) ->
+    {error, badarg}.
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+run1(Db, Query, Params, Mutable) ->
     NewQuery = Query ++ "\n",
     Encoder = json_encoder(),
     NewParams = binary_to_list(Encoder:encode(Params)) ++ "\n",
@@ -385,10 +399,7 @@ run(Db, Query, Params, Mutable)
 	    run_query_parser(Db, NewQuery, NewParams, 0);
 	{NewQuery, NewParams, false} ->
 	    run_query_parser(Db, NewQuery, NewParams, 1)
-    end;
-run(_, _, _, _) ->
-    {error, badarg}.
-
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc import relations as json.
@@ -549,6 +560,11 @@ list_relations(Db) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec explain(Db, Query) -> Return when
+      Db :: db_id(),
+      Query :: string(),
+      Return :: query_return().
+
 explain(Db, Query) ->
     Command = string:join(["::explain", "{", Query, "}"], " "),
     run(Db, Command).
@@ -564,6 +580,11 @@ explain(Db, Query) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec list_columns(Db, Name) -> Return when
+      Db :: db_id(),
+      Name :: string(),
+      Return :: query_return().
+
 list_columns(Db, Name) ->
     Command = string:join(["::columns", Name], " "),
     run(Db, Command).
@@ -579,6 +600,11 @@ list_columns(Db, Name) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec list_indices(Db, Name) -> Return when
+      Db :: db_id(),
+      Name :: string(),
+      Return :: query_return().
+
 list_indices(Db, Name) ->
     Command = string:join(["::indices", Name], " "),
     run(Db, Command).
@@ -592,8 +618,15 @@ list_indices(Db, Name) ->
 %% {ok, _} = cozo:describe(Db, Relation).
 %% '''
 %%
+%% @see run/4
 %% @end
 %%--------------------------------------------------------------------
+-spec describe(Db, Name, Description) -> Return when
+      Db :: db_id(),
+      Name :: string(),
+      Description :: string(),
+      Return :: query_return().
+
 describe(Db, Name, Description) ->
     Command = string:join(["::describe", Name, Description ++ "?"], " "),
     run(Db, Command).
@@ -607,8 +640,14 @@ describe(Db, Name, Description) ->
 %% {ok, _} = cozo:remove_relations(Db, Relation).
 %% '''
 %%
+%% @see run/4
 %% @end
 %%--------------------------------------------------------------------
+-spec remove_relation(Db, Name) -> Return when
+      Db :: db_id(),
+      Name :: string(),
+      Return :: query_return().
+
 remove_relation(Db, Name) ->
     Command = string:join(["::remove", Name], " "),
     run(Db, Command).
@@ -624,6 +663,11 @@ remove_relation(Db, Name) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec remove_relations(Db, Names) -> Return when
+      Db     :: db_id(),
+      Names  :: [string(), ...],
+      Return :: query_return().
+
 remove_relations(Db, Names) ->
     Relations = string:join(Names, ","),
     run(Db, Relations).
@@ -639,6 +683,11 @@ remove_relations(Db, Names) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec get_triggers(Db, Name) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Return :: query_return().
+
 get_triggers(Db, Name) ->
     Command = string:join(["::show_triggers", Name], " "),
     run(Db, Command).
@@ -654,6 +703,12 @@ get_triggers(Db, Name) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec set_access_level(Db, Level, Name) -> Return when
+      Db :: db_id(),
+      Level :: string(),
+      Name :: string(),
+      Return :: query_return().
+
 set_access_level(Db, Level, Name) ->
     Command = string:join(["::access_level", Level, Name], " "),
     run(Db, Command).
@@ -669,6 +724,12 @@ set_access_level(Db, Level, Name) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec set_access_levels(Db, Level, Names) -> Return when
+      Db     :: db_id(),
+      Level  :: string(),
+      Names  :: [string(), ...],
+      Return :: query_return().
+
 set_access_levels(Db, Level, Names) ->
     Relations = string:join(Names, ","),
     set_access_level(Db, Level, Relations).
@@ -684,6 +745,10 @@ set_access_levels(Db, Level, Names) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec get_running_queries(Db) -> Return when
+      Db     :: db_id(),
+      Return :: query_return().
+
 get_running_queries(Db) ->
     run(Db, "::running").
 
@@ -698,6 +763,11 @@ get_running_queries(Db) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec kill(Db, Id) -> Return when
+      Db     :: db_id(),
+      Id     :: string(),
+      Return :: query_return().
+
 kill(Db, Id) ->
     Command = string:join(["::kill", Id], " "),
     run(Db, Command).
@@ -713,6 +783,10 @@ kill(Db, Id) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec compact(Db) -> Return when
+      Db     :: db_id(),
+      Return :: query_return().
+
 compact(Db) ->
     run(Db, "::compact").
 
@@ -728,6 +802,12 @@ compact(Db) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec create_relation(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
 create_relation(Db, Name, Spec) ->
     Command = string:join([":create", Name, Spec], " "),
     run(Db, Command).
@@ -744,6 +824,12 @@ create_relation(Db, Name, Spec) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec replace_relation(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
 replace_relation(Db, Name, Spec) ->
     Command = string:join([":replace", Name, Spec], " "),
     run(Db, Command).
@@ -760,6 +846,12 @@ replace_relation(Db, Name, Spec) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec put_row(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
 put_row(Db, Name, Spec) ->
     Command = string:join([":put", Name, Spec], " "),
     run(Db, Command).
@@ -775,6 +867,12 @@ put_row(Db, Name, Spec) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec update_row(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
 update_row(Db, Name, Spec) ->
     Command = string:join([":update", Name, Spec], " "),
     run(Db, Command).
@@ -790,6 +888,12 @@ update_row(Db, Name, Spec) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec remove_row(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
 remove_row(Db, Name, Spec) ->
     Command = string:join([":rm", Name, Spec], " "),
     run(Db, Command).
@@ -808,6 +912,12 @@ remove_row(Db, Name, Spec) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec ensure_row(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
 ensure_row(Db, Name, Spec) ->
     Command = string:join([":ensure", Name, Spec], " "),
     run(Db, Command).
@@ -825,6 +935,12 @@ ensure_row(Db, Name, Spec) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+-spec ensure_not_row(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
 ensure_not_row(Db, Name, Spec) ->
     Command = string:join([":ensure_not", Name, Spec], " "),
     run(Db, Command).
