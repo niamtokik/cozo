@@ -119,7 +119,7 @@ compile:
 
 .PHONY += test
 test:
-	$(ENV_BOOTSTRAP) rebar3 ct
+	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 ct
 
 .PHONY += doc
 doc:
@@ -131,11 +131,11 @@ shell:
 
 .PHONY += cover
 cover:
-	$(ENV_BOOTSTRAP) rebar3 cover
+	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 cover
 
 .PHONY += dialyzer
 dialyzer:
-	$(ENV_BOOTSTRAP) rebar3 dialyzer
+	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 dialyzer
 
 .PHONY += clean
 clean:
