@@ -863,6 +863,6 @@ create_filepath(Path, Prefix, Length) ->
     AlphabetLength = length(Alphabet),
     RandomString = crypto:strong_rand_bytes(Length),
     RandomName = [ lists:nth((X rem AlphabetLength)+1, Alphabet)
-		   || <<X>> <= RandomString ],
+                   || <<X>> <= RandomString ],
     PrefixName = Prefix ++ RandomName,
     filename:join([Path, PrefixName]).
