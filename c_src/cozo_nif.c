@@ -317,13 +317,13 @@ static ERL_NIF_TERM import_backup_db(ErlNifEnv *env, int argc, const ERL_NIF_TER
  */
 static ErlNifFunc nif_funcs[] =
   {
-   {"open_db", 3, open_db},
-   {"close_db", 1, close_db},
-   {"run_query", 4, run_query},
-   {"import_relations_db", 2, import_relations_db},
-   {"export_relations_db", 2, export_relations_db},
-   {"backup_db", 2, backup_db},
-   {"restore_db", 2, restore_db},
-   {"import_backup_db", 2, import_backup_db}
+   {"open_db_nif", 3, open_db},
+   {"close_db_nif", 1, close_db},
+   {"run_query_nif", 4, run_query},
+   {"import_relations_db_nif", 2, import_relations_db},
+   {"export_relations_db_nif", 2, export_relations_db},
+   {"backup_db_nif", 2, backup_db},
+   {"restore_db_nif", 2, restore_db},
+   {"import_backup_db_nif", 2, import_backup_db}
   };
 ERL_NIF_INIT(cozo_nif,nif_funcs,NULL,NULL,NULL,NULL)

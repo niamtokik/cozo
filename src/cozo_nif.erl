@@ -45,9 +45,13 @@
         , import_relations_db/2, export_relations_db/2
         , backup_db/2, restore_db/2, import_backup_db/2
         ]).
--nifs([ open_db/3, close_db/1, run_query/4
-      , import_relations_db/2, export_relations_db/2
-      , backup_db/2, restore_db/2, import_backup_db/2
+-export([ open_db_nif/3, close_db_nif/1, run_query_nif/4
+	, import_relations_db_nif/2, export_relations_db_nif/2
+	, backup_db_nif/2, restore_db_nif/2, import_backup_db_nif/2
+	]).
+-nifs([ open_db_nif/3, close_db_nif/1, run_query_nif/4
+      , import_relations_db_nif/2, export_relations_db_nif/2
+      , backup_db_nif/2, restore_db_nif/2, import_backup_db_nif/2
       ]).
 -include_lib("kernel/include/logger.hrl").
 -on_load(init/0).
@@ -88,8 +92,12 @@ init() -> init("cozo_nif").
 
 init(Path) ->
     PrivDir = application:get_env(cozo, lib_path, priv_dir()),
+    case application:get_env(cozo, debug, false) of
+	true -> logger:set_module_level(?MODULE, debug);
+	_ -> ok
+    end,
     Lib = filename:join(PrivDir, Path),
-    ?LOG_DEBUG("~p", [{self(), ?MODULE, init, [Path]}]),
+    ?LOG_DEBUG("~p", [debug_message(init, [Path])]),
     ok = erlang:load_nif(Lib, 0).
 
 %%--------------------------------------------------------------------
@@ -112,7 +120,17 @@ init(Path) ->
       Options :: db_options(),
       Return  :: nif_return().
 
-open_db(_Engine, _Path, _Options) ->
+open_db(Engine, Path, Options) ->
+    ?LOG_DEBUG("~p", [debug_message(open_db, [Engine, Path, Options])]),
+    call(open_db_nif, [Engine, Path, Options]).
+
+-spec open_db_nif(Engine, Path, Options) -> Return when
+      Engine  :: db_engine(),
+      Path    :: db_path(),
+      Options :: db_options(),
+      Return  :: nif_return().
+
+open_db_nif(_Engine, _Path, _Options) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -136,7 +154,19 @@ open_db(_Engine, _Path, _Options) ->
       Mutable :: query_mutable(),
       Return  :: nif_return().
 
-run_query(_Id, _Script, _Params, _Mutable) ->
+run_query(Id, Script, Params, Mutable) ->
+    Args = [Id, Script, Params, Mutable],
+    ?LOG_DEBUG("~p", [debug_message(run_query, Args)]),
+    call(run_query_nif, Args).
+
+-spec run_query_nif(Id, Script, Params, Mutable) -> Return when
+      Id      :: db_id(),
+      Script  :: query_script(),
+      Params  :: query_params(),
+      Mutable :: query_mutable(),
+      Return  :: nif_return().
+
+run_query_nif(_Id, _Script, _Params, _Mutable) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -159,7 +189,15 @@ run_query(_Id, _Script, _Params, _Mutable) ->
       Id     :: db_id(),
       Return :: nif_return().
 
-close_db(_Id) ->
+close_db(Id) ->
+    ?LOG_DEBUG("~p", [debug_message(close_db, [Id])]),
+    call(close_db_nif, [Id]).
+
+-spec close_db_nif(Id) -> Return when
+      Id     :: db_id(),
+      Return :: nif_return().
+
+close_db_nif(_Id) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -181,7 +219,17 @@ close_db(_Id) ->
       Json   :: json(),
       Return :: nif_return().
 
-import_relations_db(_Id, _Json) ->
+import_relations_db(Id, Json) ->
+    Args = [Id, Json],
+    ?LOG_DEBUG("~p", [debug_message(import_relations_db, Args)]),
+    call(import_relations_db_nif, Args).
+
+-spec import_relations_db_nif(Id, Json) -> Return when
+      Id     :: db_id(),
+      Json   :: json(),
+      Return :: nif_return().
+
+import_relations_db_nif(_Id, _Json) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -205,7 +253,17 @@ import_relations_db(_Id, _Json) ->
       Json   :: json(),
       Return :: nif_return().
 
-export_relations_db(_Id, _Json) ->
+export_relations_db(Id, Json) ->
+    Args = [Id, Json],
+    ?LOG_DEBUG("~p", [debug_message(export_relations_db, Args)]),
+    call(export_relations_db_nif, Args).
+
+-spec export_relations_db_nif(Id, Json) -> Return when
+      Id     :: db_id(),
+      Json   :: json(),
+      Return :: nif_return().
+
+export_relations_db_nif(_Id, _Json) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -229,7 +287,17 @@ export_relations_db(_Id, _Json) ->
       Path   :: db_path(),
       Return :: nif_return().
 
-backup_db(_Id, _Path) ->
+backup_db(Id, Path) ->
+    Args = [Id, Path],
+    ?LOG_DEBUG("~p", [debug_message(backup_db, Args)]),
+    call(backup_db_nif, Args).
+
+-spec backup_db_nif(Id, Path) -> Return when
+      Id     :: db_id(),
+      Path   :: db_path(),
+      Return :: nif_return().
+
+backup_db_nif(_Id, _Path) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -253,7 +321,17 @@ backup_db(_Id, _Path) ->
       Path   :: db_path(),
       Return :: nif_return().
 
-restore_db(_Id, _Path) ->
+restore_db(Id, Path) ->
+    Args = [Id, Path],
+    ?LOG_DEBUG("~p", [debug_message(restore_db, Args)]),
+    call(restore_db_nif, Args).
+
+-spec restore_db_nif(Id, Path) -> Return when
+      Id     :: db_id(),
+      Path   :: db_path(),
+      Return :: nif_return().
+
+restore_db_nif(_Id, _Path) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -275,7 +353,17 @@ restore_db(_Id, _Path) ->
       Path   :: db_path(),
       Return :: nif_return().
 
-import_backup_db(_Id, _Path) ->
+import_backup_db(Id, Path) ->
+    Args = [Id, Path],
+    ?LOG_DEBUG("~p", [debug_message(import_backup_db, Args)]),
+    call(import_backup_db_nif, Args).
+
+-spec import_backup_db_nif(Id, Path) -> Return when
+      Id     :: db_id(),
+      Path   :: db_path(),
+      Return :: nif_return().
+
+import_backup_db_nif(_Id, _Path) ->
     exit(nif_library_not_loaded).
 
 %%--------------------------------------------------------------------
@@ -298,3 +386,37 @@ priv_dir() ->
         Val ->
             Val
     end.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc helper to create debug messages.
+%% @end
+%%--------------------------------------------------------------------
+-spec debug_message(Function, Args) -> Return when
+      Function :: atom(),
+      Args     :: list(),
+      Return   :: map().
+
+debug_message(Function, Args) ->
+    #{ caller => self()
+     , module => ?MODULE
+     , function => Function
+     , args => Args
+     }.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc function to call internal exported modules.
+%% @end
+%%--------------------------------------------------------------------
+-spec call(atom(), list()) -> term().
+
+call(Function, Args) ->
+    Return = erlang:apply(?MODULE, Function, Args),
+    ?LOG_DEBUG("~p", [#{ caller => self() 
+		       , module => ?MODULE
+		       , function => Function
+		       , args => Args
+		       , return => Return
+		       }]),
+    Return.

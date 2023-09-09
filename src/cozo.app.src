@@ -21,7 +21,13 @@
 	 {engine, mem},
 
 	 % default json parser
-	 {json_parser, thoas}
+	 {json_parser, thoas},
+
+	 % set this application in debug mode
+	 % it will print lot of information and
+	 % can impact performances. you can disable
+	 % it manually with logger:set_module_level/2
+	 {debug, false}
 
 	 % default sqlite options
 	 % {sqlite_options, #{}},

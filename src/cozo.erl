@@ -285,7 +285,7 @@ open_nif(Engine, Path, DbOptions, State) ->
 %%--------------------------------------------------------------------
 -spec close(Db) -> Return when
       Db     :: db_id(),
-      Return :: ok | {error, close_error}.
+      Return :: ok | {error, term()}.
 
 close(Db)
   when is_integer(Db) ->
@@ -1045,7 +1045,7 @@ run_query_parser(Db, Query, Params, Mutability) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec decode_json(Message) -> Return when
-      Message :: binary() | bitstring(),
+      Message :: string() | binary() | bitstring(),
       Return  :: {ok, map()}
 	       | {error, term()}.
 
