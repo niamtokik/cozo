@@ -40,5 +40,6 @@
        ]},
   {modules, []},
   {licenses, ["BSD-2-Clause"]},
-  {links, ["https://github.com/niamtokik/cozo"]}
+  {links, [{"Github", "https://github.com/niamtokik/cozo"}]},
+  {exclude_paths, ["priv/libcozo*"]}
  ]}.
