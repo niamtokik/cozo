@@ -631,6 +631,19 @@ rocksdb(_Config) ->
     cozo:close(Db2).
 
 %%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+system_commands() -> [].
+system_commands(_Config) ->
+    {ok, {Db, _}} = cozo:open(),
+    {ok, _} = cozo:create_relation(Db, "stored", "c1"),
+    {ok, _} = cozo:create_relation(Db, "stored2", ["c1","c2","c3"]),
+    {ok, _} = cozo:create_relation(Db, stored3, c1),
+    {ok, _} = cozo:create_relation(Db, stored4, [c1,c2,c3]),
+    {ok, _} = cozo:create_relation(Db, stored5, ["c1",c2,"c3",c4]),
+    ok = cozo:close(Db).
+
+%%--------------------------------------------------------------------
 %% Function: TestCase() -> Info
 %% Info = [tuple()]
 %%--------------------------------------------------------------------
