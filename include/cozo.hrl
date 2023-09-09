@@ -1,5 +1,5 @@
 % define cozo types and records.
--type db_id()         :: pos_integer().
+-type db_id()         :: 0 | pos_integer().
 -type db_engine()     :: mem | sqlite | rocksdb.
 -type db_path()       :: string().
 -type db_options()    :: map().

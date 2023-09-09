@@ -34,10 +34,10 @@ This is an Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS embed
    - [ ] test `cozo:restore` function
    - [ ] test `cozo:import_backup` function
  - [x] Create `cozo_db` module to deal with strong isolation
- - [ ] Create test suite for `cozo_nif` module
- - [ ] Specify interfaces
+ - [x] Create test suite for `cozo_nif` module
+ - [x] Specify interfaces
  - [ ] Add property based testing support
- - [ ] Add Dialyzer support
+ - [x] Add Dialyzer support
  - [ ] Create more usage example
  - [ ] Create distributed example
  - [ ] Check if `cozo_nif.c` is safe
