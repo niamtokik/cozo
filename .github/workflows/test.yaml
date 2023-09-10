@@ -1,0 +1,60 @@
+on: push
+
+jobs:
+  test:
+    runs-on: self-hosted
+    name: Erlang/OTP
+    strategy:
+      fail-fast: true
+      matrix:
+        container:
+          - erlang:26
+    container:
+      image: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: "Fetch and compile dependencies"
+        run: make deps
+
+      - name: "Compile cozo project"
+        run: make compile
+
+      - name: "Run eunit and common_test"
+        run: make test
+      - name: "Upload test report"
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-report
+          path: _build/test/logs
+          retention-days: 5
+
+      - name: "Run coverage analysis"
+        run: make cover
+      - name: "Upload cover report"
+        uses: actions/upload-artifact@v3
+        with:
+          name: cover-report
+          path: _build/test/cover
+          retention-days: 5
+
+      - name: run dialyzer
+        run: make dialyzer
+
+      - name: "Build documentation"
+        run: make doc
+      - name: "Upload documentation"
+        uses: actions/upload-artifact@v3
+        with:
+          name: documentation
+          path: doc
+          retention-days: 5
+
+      - name: "Build hex package"
+        run: make hex
+      - name: "Upload hex package"
+        uses: actions/upload-artifact@v3
+        with:
+          name: hex-package
+          path: _build/default/lib/cozo/hex
+          retention-days: 5
