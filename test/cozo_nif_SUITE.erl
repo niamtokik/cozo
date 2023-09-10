@@ -98,15 +98,26 @@ all() -> [simple, export_import, backup_restore].
 %%
 %%--------------------------------------------------------------------
 simple() -> [].
-simple(_Config) ->
+simple(Config) ->
+    Modes = proplists:get_value(modes, Config, [normal,debug]),
     DbPath = "/tmp/cozodb_nif_test.db\n",
     DbOptions = "{}\n",
     Query = "?[] <- [[1,2,3]]\n",
     QueryParams = "{}\n",
-    {ok, Db} = cozo_nif:open_db("mem\n", DbPath, DbOptions),
-    {ok, R1} = cozo_nif:run_query(Db, Query, QueryParams, 0),
-    ct:pal(info, ?LOW_IMPORTANCE, "run_query: ~p", [R1]),
-    ok = cozo_nif:close_db(Db).
+    lists:map(fun(Mode) ->
+		      case Mode of
+			  debug -> application:set_env(cozo, debug, true);
+			  _ -> ok
+		      end,
+		      {ok, Db} = cozo_nif:open_db("mem\n", DbPath, DbOptions),
+		      {ok, R1} = cozo_nif:run_query(Db, Query, QueryParams, 0),
+		      ct:pal(info, ?LOW_IMPORTANCE, "run_query: ~p", [R1]),
+		      ok = cozo_nif:close_db(Db),
+		      case Mode of
+			  debug -> application:set_env(cozo, debug, false);
+			  _ -> ok
+		      end
+	      end, Modes).
 
 %%--------------------------------------------------------------------
 %%
@@ -117,11 +128,11 @@ export_import(_Config) ->
     DbOptions = "{}\n",
     {ok, Db} = cozo_nif:open_db("mem\n", DbPath, DbOptions),
 
-    Relations = "{\"stored\":{\"headers\":[\"c1\",\"c2\"], \"rows\":\[\]}}\n",
+    Relations = "{\"stored\":{\"headers\":[\"c1\",\"c2\"],\"rows\":\[\]}}\n",
     {ok, R1} = cozo_nif:import_relations_db(Db, Relations),
     ct:pal(info, ?LOW_IMPORTANCE, "import_relations_db: ~p", [R1]),
 
-    RelationsToExport = "{ \"relations\": [\"stored\"]}\n",
+    RelationsToExport = "{\"relations\":[\"stored\"]}\n",
     {ok, R2} = cozo_nif:export_relations_db(Db, RelationsToExport),
     ct:pal(info, ?LOW_IMPORTANCE, "export_relations_db: ~p", [R2]),
 

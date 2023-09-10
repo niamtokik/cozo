@@ -109,7 +109,7 @@ help:
 	@echo "Usage: make [all|deps|compile|test|cover|dialyzer|doc|hex|shell|clean]"
 
 .PHONY += all
-all: deps compile test doc
+all: deps compile test cover dialyzer doc
 
 deps: $(PRIV_DIR)/cozo_nif.so
 
