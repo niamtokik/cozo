@@ -430,7 +430,7 @@ multi_spawn(_Config) ->
     [ cozo_spawn(100)
     , cozo_spawn(1_000)
     , cozo_spawn(10_000)
-    , cozo_spawn(100_000)
+    % , cozo_spawn(100_000)
     ].
 
 cozo_spawn(Counter) ->

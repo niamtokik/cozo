@@ -106,7 +106,7 @@ ENV_BOOTSTRAP ?= LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) CFLAG_RUNTIME_LIBRARY_PATH=$
 ################################################################################
 .PHONY += help
 help:
-	@echo "Usage: make [all|deps|compile|test|doc|shell|clean]"
+	@echo "Usage: make [all|deps|compile|test|cover|dialyzer|doc|hex|shell|clean]"
 
 .PHONY += all
 all: deps compile test doc
@@ -136,6 +136,10 @@ cover:
 .PHONY += dialyzer
 dialyzer:
 	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 dialyzer
+
+.PHONY += hex
+hex:
+	$(ENV_BOOTSTRAP) rebar3 hex build
 
 .PHONY += clean
 clean:
