@@ -19,7 +19,7 @@ jobs:
       - name: "Upload cozo_nif.so"
         uses: actions/upload-artifact@v3
         with:
-          name: test-report
+          name: cozo_nif.so
           path: priv/cozo_nif.so
           retention-days: 5
 
