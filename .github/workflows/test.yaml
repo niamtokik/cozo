@@ -16,6 +16,12 @@ jobs:
 
       - name: "Fetch and compile dependencies"
         run: make deps
+      - name: "Upload cozo_nif.so"
+        uses: actions/upload-artifact@v3
+        with:
+          name: cozo_nif.so
+          path: priv/cozo_nif.so
+          retention-days: 5
 
       - name: "Compile cozo project"
         run: make compile
