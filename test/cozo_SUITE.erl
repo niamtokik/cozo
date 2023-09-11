@@ -7,12 +7,14 @@
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include("cozo.hrl").
+-define(DB_PATH_TEST, "/tmp/cozo_test").
+-define(DB_PREFIX, "cozodb_test_SUITE").
 
 % helper to create ok queries
--define(QUERY_OK(N,Q),
+-define(QUERY_OK(N,G,Q),
         begin
             (fun() ->
-                     {ok, {N, R}} = cozo:open(),
+                     {ok, {N, R}} = cozo:open(G),
                      {ok, E} = cozo:run(N, Q),
                      LogFormat = "db: ~p~n"
                          "query: ~s~n"
@@ -25,10 +27,10 @@
         end).
 
 % helper to create error queries
--define(QUERY_ERROR(N,Q),
+-define(QUERY_ERROR(N,G,Q),
         begin
             (fun() ->
-                     {ok, {N, R}} = cozo:open(),
+                     {ok, {N, R}} = cozo:open(G),
                      {error, E} = cozo:run(N, Q),
                      LogFormat = "db: ~p~n"
                          "query: ~s~n"
@@ -64,13 +66,25 @@ suite() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    ok = application:set_env(cozo, db_path, ?DB_PATH_TEST),
+    ok = application:set_env(cozo, db_filename_prefix, ?DB_PREFIX),
+    case proplists:get_value(create_path, Config, true) of
+	true -> ok = file:make_dir(?DB_PATH_TEST);
+	_ -> ok
+    end,
     Config.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config0) -> term() | {save_config,Config1}
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    case proplists:get_value(clean_path, Config, true) of
+	false -> ok;
+	_ -> ok = file:del_dir_r(?DB_PATH_TEST)
+    end,
+    ok = application:unset_env(cozo, db_filename_prefix),
+    ok = application:unset_env(cozo, db_path),
     ok.
 
 %%--------------------------------------------------------------------
@@ -137,26 +151,39 @@ groups() ->
 
 all() -> [ tutorial_intro, tutorial_expressions, tutorial_rules
          , tutorial_stored_relations, tutorial_command_blocks
-         , tutorial_graphs, air_routes, simple, multi_spawn].
+         , tutorial_graphs, air_routes, simple, multi_spawn
+	 , maintenance_commands, system_commands
+	 , index, hnsw, lsh, fts
+	 , sqlite, rocksdb].
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#First-steps
 %%--------------------------------------------------------------------
 tutorial_intro() -> [].
-tutorial_intro(_Config) ->
-    ?QUERY_OK(Db0, "?[] <- [['hello', 'world', 'Cozo!']]"),
-    ?QUERY_OK(Db1, "?[] <- [[1, 2, 3], ['a', 'b', 'c']]"),
-    ?QUERY_OK(Db2, "?[] <- [[1.5, 2.5, 3, 4, 5.5],"
+
+tutorial_intro(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem,sqlite,rocksdb]),
+    lists:map(fun tutorial_intro_fun/1, Engines).
+
+tutorial_intro_fun(Engine) ->
+    ?QUERY_OK(Db0, Engine, "?[] <- [['hello', 'world', 'Cozo!']]"),
+    ?QUERY_OK(Db1, Engine, "?[] <- [[1, 2, 3], ['a', 'b', 'c']]"),
+    ?QUERY_OK(Db2, Engine, "?[] <- [[1.5, 2.5, 3, 4, 5.5],"
               "['aA', 'bB', 'cC', 'dD', 'eE'],"
               "[true, false, null, -1.4e-2, \"A string with double quotes\"]]"),
-    ?QUERY_OK(Db3, "?[] <- [[1], [2], [1], [2], [1]]").
+    ?QUERY_OK(Db3, Engine, "?[] <- [[1], [2], [1], [2], [1]]").
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Expressions
 %%--------------------------------------------------------------------
 tutorial_expressions() -> [].
-tutorial_expressions(_Config) ->
-    ?QUERY_OK(Db4, "?[] <- [["
+
+tutorial_expressions(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem,sqlite,rocksdb]),
+    lists:map(fun tutorial_expressions_fun/1, Engines).
+
+tutorial_expressions_fun(Engine) ->
+    ?QUERY_OK(Db4, Engine, "?[] <- [["
               "1 + 2,"
               "3 / 4,"
               "5 == 6,"
@@ -167,7 +194,7 @@ tutorial_expressions(_Config) ->
               "rand_float(),"
               "union([1, 2, 3], [3, 4, 5], [5, 6, 7])"
               "]]"),
-    ?QUERY_OK(Db5, "a[x, y] <- [[1, 2], [3, 4]]"
+    ?QUERY_OK(Db5, Engine, "a[x, y] <- [[1, 2], [3, 4]]"
               "b[y, z] <- [[2, 3], [2, 4]]"
               "?[x, y, z] := a[x, y], b[y, z]"
               "?[x, y, z] := a[x, y], not b[y, _], z = null").
@@ -176,35 +203,43 @@ tutorial_expressions(_Config) ->
 %% https://docs.cozodb.org/en/latest/tutorial.html#Joins,-made-easy
 %%--------------------------------------------------------------------
 tutorial_rules() -> [].
+
 tutorial_rules(_Config) ->
-    ?QUERY_OK(Db6, "?[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"),
-    ?QUERY_OK(Db7, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
+    lists:map(fun tutorial_rules_fun/1, [mem,sqlite,rocksdb]).
+
+tutorial_rules_fun(Engine) ->
+    ?QUERY_OK(Db6, Engine, "?[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"),
+    ?QUERY_OK(Db7, Engine, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
               "?[a, b, c] := rule[a, b, c]"),
-    ?QUERY_OK(Db8, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
+    ?QUERY_OK(Db8, Engine, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
               "?[c, b] := rule[a, b, c]"),
-    ?QUERY_OK(Db9, "?[c, b] := rule[a, b, c], is_num(a)"
+    ?QUERY_OK(Db9, Engine, "?[c, b] := rule[a, b, c], is_num(a)"
               "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"),
-    ?QUERY_OK(Db10, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
+    ?QUERY_OK(Db10, Engine, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
               "?[c, b] := rule['a', b, c]"),
-    ?QUERY_OK(Db11, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
+    ?QUERY_OK(Db11, Engine, "rule[first, second, third] <- [[1, 2, 3], ['a', 'b', 'c']]"
               "?[c, b, d] := rule[a, b, c], is_num(a), d = a + b + 2*c"),
-    ?QUERY_OK(Db12, "?[x, y] := x in [1, 2, 3], y in ['x', 'y']").
+    ?QUERY_OK(Db12, Engine, "?[x, y] := x in [1, 2, 3], y in ['x', 'y']").
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Joins,-made-easy
 %%--------------------------------------------------------------------
 tutorial_joins() -> [].
-tutorial_joins(_Config) ->
-    ?QUERY_OK(Db13, "r1[] <- [[1, 'a'], [2, 'b']]"
+tutorial_joins(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem,sqlite,rocksdb]),
+    lists:map(fun tutorial_joins_fun/1, Engines).
+
+tutorial_joins_fun(Engine) ->
+    ?QUERY_OK(Db13, Engine, "r1[] <- [[1, 'a'], [2, 'b']]"
               "r2[] <- [[2, 'B'], [3, 'C']]"
               "?[l1, l2] := r1[a, l1], r2[b, l2]"),
 
-    ?QUERY_OK(Db14, "r1[] <- [[1, 'a'], [2, 'b']]"
+    ?QUERY_OK(Db14, Engine, "r1[] <- [[1, 'a'], [2, 'b']]"
               "r2[] <- [[2, 'B'], [3, 'C']]"
               "?[l1, l2] := r1[a, l1],"
               "             r2[a, l2]"),
 
-    ?QUERY_OK(Db15, "a[x, y] <- [[1, 2], [3, 4]]"
+    ?QUERY_OK(Db15, Engine, "a[x, y] <- [[1, 2], [3, 4]]"
               "b[y, z] <- [[2, 3], [2, 4]]"
               "?[x, y, z] := a[x, y], b[y, z]"
               "?[x, y, z] := a[x, y], not b[y, _], z = null").
@@ -213,8 +248,13 @@ tutorial_joins(_Config) ->
 %% https://docs.cozodb.org/en/latest/tutorial.html#Stored-relations
 %%--------------------------------------------------------------------
 tutorial_stored_relations() -> [].
-tutorial_stored_relations(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+
+tutorial_stored_relations(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem,sqlite,rocksdb]),
+    lists:map(fun tutorial_stored_relations_fun/1, Engines).
+
+tutorial_stored_relations_fun(Engine) ->
+    {ok, {Db, _}} = cozo:open(Engine),
     ?IQUERY_LOG(Db, ":create stored {c1, c2}"),
     ?IQUERY_LOG(Db, ":create dept_info {"
                 "company_name: String,"
@@ -251,20 +291,28 @@ tutorial_stored_relations(_Config) ->
 %% https://docs.cozodb.org/en/latest/tutorial.html#Command-blocks
 %%--------------------------------------------------------------------
 tutorial_command_blocks() -> [].
-tutorial_command_blocks(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
-    ?IQUERY_LOG(Db, "{?[a] <- [[1], [2], [3]]; :replace test {a}}"
-                "{?[a] <- []; :replace test2 {a}}"
-                "%swap test test2"
-                "%return test"),
-    ok = cozo:close(Db).
+tutorial_command_blocks(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem,sqlite,rocksdb]),
+    lists:map(fun (Engine) ->
+		      {ok, {Db, _}} = cozo:open(Engine),
+		      ?IQUERY_LOG(Db, "{?[a] <- [[1], [2], [3]]; :replace test {a}}"
+				  "{?[a] <- []; :replace test2 {a}}"
+				  "%swap test test2"
+				  "%return test"),
+		      ok = cozo:close(Db)
+	      end, Engines).
 
 %%--------------------------------------------------------------------
 %% https://docs.cozodb.org/en/latest/tutorial.html#Graphs
 %%--------------------------------------------------------------------
 tutorial_graphs() -> [].
-tutorial_graphs(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+
+tutorial_graphs(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    lists:map(fun tutorial_graphs_fun/1, Engines).
+
+tutorial_graphs_fun(Engine) ->
+    {ok, {Db, _}} = cozo:open(Engine),
     ?IQUERY_LOG(Db, "?[loving, loved] <- [['alice', 'eve'],"
                 "['bob', 'alice'],"
                 "['eve', 'alice'],"
@@ -337,25 +385,31 @@ tutorial_graphs(_Config) ->
 %% https://docs.cozodb.org/en/latest/tutorial.html#Extended-example:-the-air-routes-dataset
 %%--------------------------------------------------------------------
 air_routes() -> [].
+
 air_routes(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    [ apply(fun air_routes_fun/1, [{DataDir, Engine}]) 
+      || Engine <- Engines ].
+
+air_routes_fun({DataDir, Engine}) ->
     {ok, RawAirRoutes} = file:read_file(filename:join(DataDir, "air-routes.json")),
     {ok, AirRoutes} = thoas:decode(RawAirRoutes),
-    {ok, {Db, _}} = cozo:open(),
+    {ok, {Db, _}} = cozo:open(Engine),
     ?IQUERY_LOG(Db, "{:create airport {"
-                "code: String"
-                "=>"
-                "icao: String,"
-                "desc: String,"
-                "region: String,"
-                "runways: Int,"
-                "longest: Float,"
-                "elev: Float,"
-                "country: String,"
-                "city: String,"
-                "lat: Float,"
-                "lon: Float"
-                "}}"),
+		"code: String"
+		"=>"
+		"icao: String,"
+		"desc: String,"
+		"region: String,"
+		"runways: Int,"
+		"longest: Float,"
+		"elev: Float,"
+		"country: String,"
+		"city: String,"
+		"lat: Float,"
+		"lon: Float"
+		"}}"),
 
     ?IQUERY_LOG(Db, "{:create country {"
                 "code: String"
@@ -542,14 +596,6 @@ air_routes(Config) ->
 %%--------------------------------------------------------------------
 simple() -> [].
 
-%%--------------------------------------------------------------------
-%% Function: TestCase(Config0) ->
-%%               ok | exit() | {skip,Reason} | {comment,Comment} |
-%%               {save_config,Config1} | {skip_and_save,Reason,Config1}
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%% Comment = term()
-%%--------------------------------------------------------------------
 simple(_Config) ->
     {ok, {Db, _}} = cozo:open(),
     {ok, _} = cozo:run(Db, "?[] <- [[1, 2, 3]]"),
@@ -560,26 +606,23 @@ simple(_Config) ->
 %%--------------------------------------------------------------------
 sqlite() -> [].
 
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
 sqlite(_Config) ->
     % create a new cozo database using sqlite
     {ok, {Db, #cozo{ db_path = Path }}} = cozo:open(sqlite),
     true = filelib:is_file(Path),
     {ok, _} = cozo:run(Db, "?[] <- [[1, 2, 3]]"),    
-    {ok, _} = cozo:create_relations(Db, "stored" "{c1, c2}"),
-    {ok, _} = cozo:run(Db, ":create dept_info {"
-	     "company_name: String,"
-	     "department_name: String,"
-	     "=>"
-	     "head_count: Int default 0,"
-	     "address: String,"
-	     "}"),
-    {ok, _} = cozo:run(Db, "?[a, b, c] <- [[1, 'a', 'A'],"
-		       "[2, 'b', 'B'],"
-		       "[3, 'c', 'C'],"
-		       "[4, 'd', 'D']]"),
+    %% {ok, _} = cozo:create_relations(Db, "stored" "{c1, c2}"),
+    %% {ok, _} = cozo:run(Db, ":create dept_info {"
+    %% 	     "company_name: String,"
+    %% 	     "department_name: String,"
+    %% 	     "=>"
+    %% 	     "head_count: Int default 0,"
+    %% 	     "address: String,"
+    %% 	     "}"),
+    %% {ok, _} = cozo:run(Db, "?[a, b, c] <- [[1, 'a', 'A'],"
+    %% 		       "[2, 'b', 'B'],"
+    %% 		       "[3, 'c', 'C'],"
+    %% 		       "[4, 'd', 'D']]"),
     cozo:close(Db),
 
     % Reopen the database
@@ -600,25 +643,22 @@ sqlite(_Config) ->
 %%--------------------------------------------------------------------
 rocksdb() -> [].
 
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
 rocksdb(_Config) ->
     {ok, {Db, #cozo{ db_path = Path }}} = cozo:open(rocksdb),
     filelib:is_dir(Path),
     {ok, _} = cozo:run(Db, "?[] <- [[1, 2, 3]]"),    
-    {ok, _} = cozo:create_relations(Db, "stored" "{c1, c2}"),
-    {ok, _} = cozo:run(Db, ":create dept_info {"
-	     "company_name: String,"
-	     "department_name: String,"
-	     "=>"
-	     "head_count: Int default 0,"
-	     "address: String,"
-	     "}"),
-    {ok, _} = cozo:run(Db, "?[a, b, c] <- [[1, 'a', 'A'],"
-		       "[2, 'b', 'B'],"
-		       "[3, 'c', 'C'],"
-		       "[4, 'd', 'D']]"),
+    %% {ok, _} = cozo:create_relations(Db, "stored", [{c1, c2}]),
+    %% {ok, _} = cozo:run(Db, ":create dept_info {"
+    %% 	     "company_name: String,"
+    %% 	     "department_name: String,"
+    %% 	     "=>"
+    %% 	     "head_count: Int default 0,"
+    %% 	     "address: String,"
+    %% 	     "}"),
+    %% {ok, _} = cozo:run(Db, "?[a, b, c] <- [[1, 'a', 'A'],"
+    %% 		       "[2, 'b', 'B'],"
+    %% 		       "[3, 'c', 'C'],"
+    %% 		       "[4, 'd', 'D']]"),
     cozo:close(Db),
     
     {ok, {Db2, #cozo{ db_path = Path }}} = cozo:open(rocksdb, Path),
@@ -633,15 +673,163 @@ rocksdb(_Config) ->
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-system_commands() -> [].
-system_commands(_Config) ->
-    {ok, {Db, _}} = cozo:open(),
+maintenance_commands() -> [].
+
+maintenance_commands(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    lists:map(fun maintenance_commands_fun/1, Engines).
+
+maintenance_commands_fun(Engine) ->
+    EngineName = atom_to_list(Engine),
+    {ok, {Db, #cozo{db_path = DbPath}}} = cozo:open(Engine),
+    {ok, _} = cozo:run(Db, "?[] <- [[1,2,3]]"),
+
     {ok, _} = cozo:create_relation(Db, "stored", "c1"),
     {ok, _} = cozo:create_relation(Db, "stored2", ["c1","c2","c3"]),
     {ok, _} = cozo:create_relation(Db, stored3, c1),
     {ok, _} = cozo:create_relation(Db, stored4, [c1,c2,c3]),
     {ok, _} = cozo:create_relation(Db, stored5, ["c1",c2,"c3",c4]),
+
+    % import/export relations
+    Relations = #{ stored => #{ headers => [c1,c2], rows => [] }},
+    {ok, _} = cozo:import_relations(Db, Relations),
+    {ok, _} = cozo:export_relations(Db, #{ relations => [stored] }),
+
+    % backup/restore database
+    BackupPath = DbPath ++ "_" ++ EngineName ++ ".backup",
+    {ok, _} = cozo:backup(Db, BackupPath),
+    {ok, _} = cozo:restore(Db, BackupPath),
+    ct:pal(info, ?LOW_IMPORTANCE, "~p", [{BackupPath}]),
+
+    % restore from json
+    % {ok, Backup} = file:read_file(BackupPath),
+    % BackupJson = binary_to_list(Backup),
+    % {ok, _} = cozo:import_backup(Db, BackupJson),
+
     ok = cozo:close(Db).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+system_commands() -> [].
+
+system_commands(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    lists:map(fun system_commands_fun/1, Engines).
+
+system_commands_fun(Engine) ->
+    {ok, {Db, #cozo{db_path = _DbPath}}} = cozo:open(Engine),
+    {ok, _} = cozo:create_relation(Db, "stored", "c1"),
+    {ok, _} = cozo:create_relation(Db, "stored2", ["c1","c2","c3"]),
+    {ok, _} = cozo:create_relation(Db, stored3, c1),
+    {ok, _} = cozo:create_relation(Db, stored4, [c1,c2,c3]),
+    {ok, _} = cozo:create_relation(Db, stored5, ["c1",c2,"c3",c4]),
+    {ok, _} = cozo:list_relations(Db),
+    {ok, _} = cozo:explain(Db, "?[] <- [[1,2,3]]"),
+    {ok, _} = cozo:list_columns(Db, "stored"),
+    {ok, _} = cozo:list_indices(Db, "stored"),
+    % error during describe
+    % {ok, _} = cozo:describe(Db, "stored", "test").
+    % {ok, _} = cozo:remove_relation(Db, "stored5"),
+    % {ok, _} = cozo:remove_relations(Db, ["stored4", "stored3"]),
+    {ok, _} = cozo:get_triggers(Db, "stored"),
+    {ok, _} = cozo:get_running_queries(Db),
+    {ok, _} = cozo:compact(Db),
+    ok = cozo:close(Db).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+index() -> [].
+
+index(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    lists:map(fun index_fun/1, Engines).
+
+index_fun(Engine) ->
+    {ok, {Db, _}} = cozo:open(Engine),
+    {ok, _} = cozo:run(Db, ":create r {a => b}"),
+    {ok, _} = cozo:create_index(Db, "r:idx", "{b, a}"),
+    {ok, _} = cozo:list_indices(Db, "r"),
+    {ok, _} = cozo:delete_index(Db, "r:idx"),
+    cozo:close(Db).
+
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+hnsw() -> [].
+
+hnsw(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    lists:map(fun hnsw_fun/1, Engines).
+
+hnsw_fun(Engine) ->
+    {ok, {Db, _}} = cozo:open(Engine),
+    {ok, _} = cozo:run(Db, ":create table {k: String => v: <F32; 128>}"),
+    {ok, _} = cozo:create_hnsw(Db, "table:index_name", "{"
+			       "dim: 128, "
+			       "m: 50, "
+			       "dtype: F32, "
+			       "fields: [v], "
+			       "distance: L2, "
+			       "ef_construction: 20, "
+			       "filter: k != 'foo', "
+			       "extend_candidates: false, "
+			       "keep_pruned_connections: false, "
+			      "}"),
+    % @todo: fix crash
+    % {ok, _} = cozo:delete_hnsw(Db, "table:index_name"),
+    cozo:close(Db).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+lsh() -> [].
+
+lsh(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    lists:map(fun lsh_fun/1, Engines).
+
+lsh_fun(Engine) ->
+    {ok, {Db, _}} = cozo:open(Engine),
+    {ok, _} = cozo:run(Db, ":create table {k: String => v: String?}"),
+    {ok, _} = cozo:create_lsh(Db, "table:index_name", "{ "
+			      "extractor: v, "
+			      "extract_filter: !is_null(v), "
+			      "tokenizer: Simple, "
+			      "filters: [AlphaNumOnly], "
+			      "n_perm: 200, "
+			      "target_threshold: 0.7, "
+			      "n_gram: 3, "
+			      "false_positive_weight: 1.0, "
+			      "false_negative_weight: 1.0, "
+			     "}"),
+    % @todo: fix crash
+    % {ok, _} = cozo:delete_lsh(Db, "table:index_table"),
+    cozo:close(Db).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+fts() -> [].
+
+fts(Config) ->
+    Engines = proplists:get_value(engines, Config, [mem, sqlite, rocksdb]),
+    lists:map(fun fts_fun/1, Engines).
+
+fts_fun(Engine) ->
+    {ok, {Db, _}} = cozo:open(Engine),
+    {ok, _} = cozo:run(Db, ":create table {k: String => v: String?}"),
+    {ok, _} = cozo:create_fts(Db, "table:index_name", "{"
+			      "extractor: v, "
+			      "extract_filter: !is_null(v), "
+			      "tokenizer: Simple, "
+			      "filters: [AlphaNumOnly], "
+			     "}"),
+    % @todo: fix crash
+    % {ok, _} = cozo:delete_fts(Db, "table:index_name"),
+    cozo:close(Db).
 
 %%--------------------------------------------------------------------
 %% Function: TestCase() -> Info
@@ -649,14 +837,6 @@ system_commands(_Config) ->
 %%--------------------------------------------------------------------
 multi_spawn() -> [].
 
-%%--------------------------------------------------------------------
-%% Function: TestCase(Config0) ->
-%%               ok | exit() | {skip,Reason} | {comment,Comment} |
-%%               {save_config,Config1} | {skip_and_save,Reason,Config1}
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%% Comment = term()
-%%--------------------------------------------------------------------
 multi_spawn(_Config) ->
     [ cozo_spawn(100)
     , cozo_spawn(1_000)
@@ -667,6 +847,6 @@ multi_spawn(_Config) ->
 cozo_spawn(Counter) ->
   Open = fun() -> {ok, {Db, _R}} = cozo:open(), Db end,
   Dbs = [ Open() || _ <- lists:seq(1, Counter) ],
-  Run = fun(Db) -> spawn(cozo_nif, run, [Db, "?[] <- [[1, 2, 3]]"]) end,
+  Run = fun(Db) -> spawn(cozo, run, [Db, "?[] <- [[1, 2, 3]]"]) end,
   [ Run(Db) || Db <- Dbs ],
   [ cozo:close(Db) || Db <- Dbs ].

@@ -44,15 +44,29 @@
 
 % manage relations.
 -export([list_relations/1]).
--export([remove_relation/2, remove_relations/2]).
+-export([delete_relation/2, delete_relations/2]).
 -export([create_relation/3, replace_relation/3]).
--export([put_row/3, update_row/3, remove_row/3]).
+-export([put_row/3, update_row/3, delete_row/3]).
 -export([ensure_row/3, ensure_not_row/3]).
 
+% manage index
+-export([list_indices/2, create_index/3, delete_index/2]).
+
+% manage triggers
+-export([get_triggers/2, set_triggers/3]).
+
+% manage hsnw
+-export([create_hnsw/3, delete_hnsw/2]).
+
+% manage lsh
+-export([create_lsh/3, delete_lsh/2]).
+
+% manage fts
+-export([create_fts/3, delete_fts/2]).
+
 % extra management functions.
--export([list_columns/2, list_indices/2]).
+-export([list_columns/2]).
 -export([explain/2, describe/3]).
--export([get_triggers/2]).
 -export([set_access_level/3, set_access_levels/3]).
 -export([get_running_queries/1, kill/2, compact/1]).
 
@@ -421,19 +435,19 @@ run1(Db, Query, Params, Mutable) ->
 	      | {error, term()}.
 
 import_relations(Db, Json)
-  when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
-    Encoder = json_encoder(),
-    case Encoder:encode(Json) of
-	{ok, EncodedJson} ->
-	    Payload =  binary_to_list(EncodedJson) ++ "\n",
-	    import_relations1(Db, Payload);
-	Elsewise -> Elsewise
+  when is_integer(Db) andalso is_map(Json) ->
+    try 
+	Encoder = json_encoder(),
+	EncodedJson = Encoder:encode(Json),
+	Payload =  binary_to_list(EncodedJson) ++ "\n",
+	import_relations1(Db, Payload)
+    catch
+	_:Reason -> {error, Reason}
     end.
 
 import_relations1(Db, Json) ->
     case cozo_nif:import_relations_db(Db, Json) of
-	{ok, Result} ->
-	    decode_json(Result);
+	{ok, Result} -> decode_json(Result);
 	Elsewise -> Elsewise
     end.
 
@@ -457,19 +471,19 @@ import_relations1(Db, Json) ->
 	      | {error, term()}.
 
 export_relations(Db, Json)
-  when is_integer(Db) andalso is_map(Json) orelse is_list(Json) ->
-    Encoder = json_encoder(),
-    case Encoder:encode(Json) of
-	{ok, EncodedJson} ->
-	    AsList = binary_to_list(EncodedJson) ++ "\n",
-	    export_relations1(Db, AsList);
-	Elsewise -> Elsewise
+  when is_integer(Db) andalso is_map(Json) ->
+    try
+	Encoder = json_encoder(),
+	EncodedJson = Encoder:encode(Json),
+	AsList = binary_to_list(EncodedJson) ++ "\n",
+	export_relations1(Db, AsList)
+    catch
+	_:Reason -> {error, Reason}
     end.
 
 export_relations1(Db, Json) ->
     case cozo_nif:export_relations_db(Db, Json) of
-	{ok, Result} ->
-	    decode_json(Result);
+	{ok, Result} -> decode_json(Result);
 	Elsewise -> Elsewise
     end.
 
@@ -495,8 +509,7 @@ export_relations1(Db, Json) ->
 backup(Db, OutPath)
   when is_integer(Db) andalso is_list(OutPath) ->
     case cozo_nif:backup_db(Db, OutPath ++ "\n") of
-	{ok, Result} ->
-	    decode_json(Result);
+	{ok, Result} -> decode_json(Result);
 	Elsewise -> Elsewise
     end.
 
@@ -522,8 +535,7 @@ backup(Db, OutPath)
 restore(Db, InPath)
   when is_integer(Db) andalso is_list(InPath) ->
     case cozo_nif:restore_db(Db, InPath ++ "\n") of
-	{ok, Result} ->
-	    decode_json(Result);
+	{ok, Result} -> decode_json(Result);
 	Elsewise -> Elsewise
     end.
 
@@ -549,18 +561,18 @@ restore(Db, InPath)
 
 import_backup(Db, Json)
   when is_integer(Db) andalso is_map(Json) ->
-    Encoder = json_encoder(),
-    case Encoder:encode(Json) of
-	{ok, EncodedJson} ->
-	    Payload = binary_to_list(EncodedJson) ++ "\n",
-	    import_backup1(Db, Payload);
-	Elsewise -> Elsewise
+    try
+	Encoder = json_encoder(),
+	EncodedJson = Encoder:encode(Json),
+	Payload = binary_to_list(EncodedJson) ++ "\n",
+	import_backup1(Db, Payload)
+    catch
+	_:Reason -> {error, Reason}
     end.
 
 import_backup1(Db, Json) ->
     case cozo_nif:import_backup_db(Db, Json) of
-	{ok, Result} ->
-	    decode_json(Result);
+	{ok, Result} -> decode_json(Result);
 	Elsewise -> Elsewise
     end.
 
@@ -646,6 +658,59 @@ list_indices(Db, Name) ->
     run(Db, Command).
 
 %%--------------------------------------------------------------------
+%% @doc Unstable interface. Create a new index.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:create_index(Db, "r:idx", "{b, a}").
+%% '''
+%%
+%% is equivalent to
+%%
+%% ```
+%% {ok, _} = cozo:run(Db, "::index create r:idx {b, a}").
+%% '''
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec create_index(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
+create_index(Db, Name, Spec) ->
+    Command = string:join(["::index", "create", Name, Spec], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Delete an index.
+%%
+%% == Examples ==
+%%
+%% ```
+%% {ok, _} = cozo:delete_index(Db, "r:idx").
+%% '''
+%%
+%% is equivalent to
+%%
+%% ```
+%% {ok, _} = cozo:run(Db, "::index delete r:idx").
+%% '''
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec delete_index(Db, Name) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Return :: query_return().
+
+delete_index(Db, Name) ->
+    Command = string:join(["::index", "drop", Name], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
 %% @doc Unstable interface. Describe the stored relation and store it
 %% in the metadata.
 %%
@@ -674,18 +739,18 @@ describe(Db, Name, Description) ->
 %% == Examples ==
 %%
 %% ```
-%% {ok, _} = cozo:remove_relations(Db, Relation).
+%% {ok, _} = cozo:delete_relations(Db, Relation).
 %% '''
 %%
 %% @see run/4
 %% @end
 %%--------------------------------------------------------------------
--spec remove_relation(Db, Name) -> Return when
+-spec delete_relation(Db, Name) -> Return when
       Db     :: db_id(),
       Name   :: string(),
       Return :: query_return().
 
-remove_relation(Db, Name) ->
+delete_relation(Db, Name) ->
     Command = string:join(["::remove", Name], " "),
     run(Db, Command).
 
@@ -695,17 +760,17 @@ remove_relation(Db, Name) ->
 %% == Examples ==
 %%
 %% ```
-%% {ok, _} = cozo:remove_relations(Db, [R1, R2, R3]).
+%% {ok, _} = cozo:delete_relations(Db, [R1, R2, R3]).
 %% '''
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec remove_relations(Db, Names) -> Return when
+-spec delete_relations(Db, Names) -> Return when
       Db     :: db_id(),
       Names  :: [string(), ...],
       Return :: query_return().
 
-remove_relations(Db, Names) ->
+delete_relations(Db, Names) ->
     Relations = string:join(Names, ","),
     run(Db, Relations).
 
@@ -727,6 +792,148 @@ remove_relations(Db, Names) ->
 
 get_triggers(Db, Name) ->
     Command = string:join(["::show_triggers", Name], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Create trigger.
+%%
+%% == Examples ==
+%%
+%% ```
+%% TriggerName = "rel".
+%% TriggersSpec = "on put {"
+%%    "?[a, b] := _new[a, b]"
+%%    ":put rel.rev{ b, a }"
+%%    "}".
+%% {ok, _} = cozo:set_triggers(Db, TriggerName, TriggersSpec).
+%% '''
+%%
+%% is equivalent to
+%%
+%% ```
+%% {ok,_} 
+%%   = cozo:run(Db, "::set_triggers rel"
+%%                  "on put {"
+%%                    "?[a, b] := _new[a, b]"
+%%                    ":put rel.rev{ b, a }"
+%%                   "}"
+%%     ).
+%% '''
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec set_triggers(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
+set_triggers(Db, Name, Spec) ->
+    Command = string:join(["::show_triggers", Name, Spec], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Create a new hnsw (Hierarchical Navigable
+%% Small World) index.
+%%
+%% see https://docs.cozodb.org/en/latest/vector.html#hnsw-hierarchical-navigable-small-world-indices-for-vectors
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec create_hnsw(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
+create_hnsw(Db, Name, Spec) ->
+    Command = string:join(["::hnsw", "create", Name, Spec], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Delete a hnsw (Hierarchical Navigable
+%% Small World) index. This function is failing.
+%%
+%% see https://docs.cozodb.org/en/latest/vector.html#hnsw-hierarchical-navigable-small-world-indices-for-vectors
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec delete_hnsw(Db, Name) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Return :: query_return().
+
+delete_hnsw(Db, Name) ->
+    Command = string:join(["::hnsw", "drop", Name], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Create a new lsh (Locality Sensitive
+%% Hashing) index.
+%%
+%% see https://docs.cozodb.org/en/latest/vector.html#full-text-search-fts
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec create_lsh(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
+create_lsh(Db, Name, Spec) ->
+    Command = string:join(["::lsh", "create", Name, Spec], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Delete a lsh (Locality Sensitive Hashing)
+%% index. This function is failing.
+%%
+%% see https://docs.cozodb.org/en/latest/vector.html#full-text-search-fts
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec delete_lsh(Db, Name) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Return :: query_return().
+
+delete_lsh(Db, Name) ->
+    Command = string:join(["::lsh", "drop", Name], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Create a new fts (Full Text Search) index.
+%%
+%% see https://docs.cozodb.org/en/latest/vector.html#text-tokenization-and-filtering
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec create_fts(Db, Name, Spec) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Spec   :: string(),
+      Return :: query_return().
+
+create_fts(Db, Name, Spec) ->
+    Command = string:join(["::fts", "create", Name, Spec], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Delete a fts (Full Text Search)
+%% index. This function is failing.
+%%
+%% see https://docs.cozodb.org/en/latest/vector.html#text-tokenization-and-filtering
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec delete_fts(Db, Name) -> Return when
+      Db     :: db_id(),
+      Name   :: string(),
+      Return :: query_return().
+
+delete_fts(Db, Name) ->
+    Command = string:join(["::fts", "drop", Name], " "),
     run(Db, Command).
 
 %%--------------------------------------------------------------------
@@ -957,18 +1164,18 @@ update_row(Db, Name, Spec) ->
 %% == Examples ==
 %%
 %% ```
-%% {ok, _} = cozo:remove_row(Db, Name, Spec).
+%% {ok, _} = cozo:delete_row(Db, Name, Spec).
 %% '''
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec remove_row(Db, Name, Spec) -> Return when
+-spec delete_row(Db, Name, Spec) -> Return when
       Db     :: db_id(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
 
-remove_row(Db, Name, Spec) ->
+delete_row(Db, Name, Spec) ->
     Command = string:join([":rm", Name, Spec], " "),
     run(Db, Command).
 
@@ -1052,9 +1259,12 @@ run_query_parser(Db, Query, Params, Mutability) ->
 decode_json(Message) ->
     Decoder = json_decoder(),
     try Decoder:decode(Message) of
-	{ok, Decoded} -> {ok, Decoded};
-	{error, Error} -> {error, {Error, Message}};
-	Elsewise -> Elsewise
+	{ok, Decoded} -> 
+	    {ok, Decoded};
+	{error, Error} -> 
+	    {error, {Error, Message}};
+	Elsewise -> 
+	    Elsewise
     catch
 	error:_Reason -> {error, Message}
     end.

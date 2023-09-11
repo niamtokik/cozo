@@ -13,6 +13,7 @@ This is an Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS embed
 
 ## Support
 
+ - [x] `cozodb` 0.7.2 on Linux and MacOS
  - [x] `cozo_open_db` with `cozo:open/0` and `cozo:open/2`.
  - [x] `cozo_close_db` with `cozo:close/1`
  - [x] `cozo_run_query` with `cozo:run/2`, `cozo:run/3` and `cozo:run/4`
@@ -24,17 +25,46 @@ This is an Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS embed
 
 ## Todo
 
- - [ ] Create test suite for `cozo` module
-   - [x] test `cozo:open` function
-   - [x] test `cozo:close` function
-   - [x] test `cozo:run` function
-   - [ ] test `cozo:import_relations` function
-   - [ ] test `cozo:export_relation` function
-   - [ ] test `cozo:backup` function
-   - [ ] test `cozo:restore` function
-   - [ ] test `cozo:import_backup` function
- - [x] Create `cozo_db` module to deal with strong isolation
+ - [x] Create test suite for standard commands (`cozo` module)
+   - [x] test `cozo:open/0`, `cozo:open/1`, `cozo:open/2` and
+         `cozo:open/3` functions
+   - [x] test `cozo:run/2`, `cozo:run/3` and `cozo:run/4` functions
+   - [x] test `cozo:close/1` function
+   
+ - [ ] Create test suite for maintenance commands (`cozo` module)
+   - [x] test `cozo:import_relations/2` function
+   - [x] test `cozo:export_relations/2` function
+   - [ ] test `cozo:backup/2` function
+   - [ ] test `cozo:restore/2` function
+   - [ ] test `cozo:import_backup/2` function
+   
+ - [ ] Create interfaces, documentation and test suites for system
+       commands (`cozo` module)
+   - [ ] `cozo:list_relations/1`
+   - [ ] `cozo:remove_relation/2` and `cozo:remove_relations/2`
+   - [ ] `cozo:create_relation/3`
+   - [ ] `cozo:replace_relation/3`
+   - [ ] `cozo:put_row/3`, `cozo:update_row/3`, `cozo:remove_row/3`
+   - [ ] `cozo:ensure_row/3` and  `cozo:ensure_not_row/3`
+   - [ ] `cozo:list_columns/2`
+   - [ ] `cozo:list_indices/2`
+   - [ ] `cozo:explain/2`
+   - [ ] `cozo:describe/3`
+   - [ ] `cozo:get_triggers/2`
+   - [ ] `cozo:set_access_level/3` 
+   - [ ] `cozo:set_access_levels/3`
+   - [ ] `cozo:get_running_queries/1`
+   - [ ] `cozo:kill/2`
+   - [ ] `cozo:compact/1`
+ 
+ - [x] Create tests suite for different engines
+   - [x] test `mem` engine
+   - [x] test `sqlite` engine
+   - [x] test `rocksdb` engine
+
  - [x] Create test suite for `cozo_nif` module
+
+ - [x] Create `cozo_db` module to deal with strong isolation
  - [x] Specify interfaces
  - [ ] Add property based testing support
  - [x] Add Dialyzer support
