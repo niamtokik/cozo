@@ -93,8 +93,8 @@ init() -> init("cozo_nif").
 init(Path) ->
     PrivDir = application:get_env(cozo, lib_path, priv_dir()),
     case application:get_env(cozo, debug, false) of
-	true -> logger:set_module_level(?MODULE, debug);
-	_ -> ok
+        true -> logger:set_module_level(?MODULE, debug);
+        _ -> ok
     end,
     Lib = filename:join(PrivDir, Path),
     ?LOG_DEBUG("~p", [debug_message(init, [Path])]),
@@ -414,9 +414,9 @@ debug_message(Function, Args) ->
 call(Function, Args) ->
     Return = erlang:apply(?MODULE, Function, Args),
     ?LOG_DEBUG("~p", [#{ caller => self() 
-		       , module => ?MODULE
-		       , function => Function
-		       , args => Args
-		       , return => Return
-		       }]),
+                       , module => ?MODULE
+                       , function => Function
+                       , args => Args
+                       , return => Return
+                       }]),
     Return.

@@ -29,8 +29,16 @@
 %%%
 %%% @copyright 2023 Mathieu Kerjouan
 %%% @author Mathieu Kerjouan
-%%%
 %%% @doc Main interface to CozoDB Erlang NIF `cozo_nif' module.
+%%%
+%%% == Introduction ==
+%%%
+%%% == Usage ==
+%%%
+%%% == Examples ==
+%%%
+%%% == Notes ==
+%%%
 %%% @end
 %%%===================================================================
 -module(cozo).
@@ -41,6 +49,9 @@
 -export([run/2,run/3,run/4]).
 -export([import_relations/2, export_relations/2]).
 -export([backup/2, restore/2, import_backup/2]).
+
+% helpers
+-export([get_path/1, get_id/1, get_options/1, get_engine/1]).
 
 % manage relations.
 -export([list_relations/1]).
@@ -53,7 +64,7 @@
 -export([list_indices/2, create_index/3, delete_index/2]).
 
 % manage triggers
--export([get_triggers/2, set_triggers/3]).
+-export([get_triggers/2, set_triggers/3, delete_triggers/2]).
 
 % manage hsnw
 -export([create_hnsw/3, delete_hnsw/2]).
@@ -100,7 +111,7 @@ json_decoder() -> application:get_env(cozo, json_parser, thoas).
 %%
 %% ```
 %% rr(cozo)
-%% {ok, {0, State}} = cozo:open().
+%% {ok, State} = cozo:open().
 %% #cozo{ id = 0
 %%      , db_engine = mem
 %%      , db_path = "/tmp/cozodb_Lq4yHM0RbGxbIwlyPBcNPyqPEj7O4msJ"
@@ -115,8 +126,8 @@ json_decoder() -> application:get_env(cozo, json_parser, thoas).
 %% @end
 %%--------------------------------------------------------------------
 -spec open() -> Return when
-      Return :: {ok, {db_id(), #cozo{}}}
-	      | {error, term()}.
+      Return :: {ok, cozo()}
+              | {error, term()}.
 
 open() ->
     DefaultEngine = application:get_env(cozo, engine, mem),
@@ -131,13 +142,13 @@ open() ->
 %%
 %% ```
 %% rr(cozo).
-%% {ok {0, #cozo{ db_path = Path }}} = open(mem).
+%% {ok #cozo{ db_path = Path }} = open(mem).
 %% "/tmp/cozodb_aPmybeM4XTudF5qJPnG5hJusV2Evq5au" = Path.
 %%
-%% {ok, {1, #cozo{ db_path = SqlitePath }}} = open(sqlite).
+%% {ok, #cozo{ db_path = SqlitePath }} = open(sqlite).
 %% "/tmp/cozodb_TDE4dQKtiXHIUjWyNEaAo1f7LAxrYk4O" = SqlitePath.
 %%
-%% {ok, {1, #cozo{ db_path = RocksDbPath }}} = open(rocksdb).
+%% {ok, #cozo{ db_path = RocksDbPath }} = open(rocksdb).
 %% "/tmp/cozodb_S8jAUccVnge0cKfci9FYvjrK1O6fAO1S" = RocksDbPath
 %% '''
 %%
@@ -147,8 +158,8 @@ open() ->
 %%--------------------------------------------------------------------
 -spec open(Engine) -> Return when
       Engine :: db_engine(),
-      Return :: {ok, {db_id(), #cozo{}}}
-	      | {error, term()}.
+      Return :: {ok, cozo()}
+              | {error, term()}.
 
 open(Engine) ->
     DefaultPath = application:get_env(cozo, db_path, "/tmp"),
@@ -172,17 +183,17 @@ open(Engine) ->
 -spec open(Engine, Path) -> Return when
       Engine :: db_engine(),
       Path   :: db_path(),
-      Return :: {ok, {db_id(), #cozo{}}}
-	      | {error, term()}.
+      Return :: {ok, cozo()}
+              | {error, term()}.
 
 open(Engine, Path) ->
     Options = case Engine of
 		  sqlite ->
-		      application:get_env(cozo, sqlite_options,  #{});
-		  rocksdb ->
-		      application:get_env(cozo, rocksdb_options,  #{});
-		  _ -> #{}
-	      end,
+                      application:get_env(cozo, sqlite_options,  #{});
+                  rocksdb ->
+                      application:get_env(cozo, rocksdb_options,  #{});
+                  _ -> #{}
+              end,
     open(Engine, Path, Options).
 
 %%--------------------------------------------------------------------
@@ -200,7 +211,7 @@ open(Engine, Path) ->
       Engine    :: db_engine(),
       Path      :: db_path(),
       DbOptions :: db_options(),
-      Return    :: {ok, {db_id(), #cozo{}}}
+      Return    :: {ok, cozo()}
                  | {error, term()}.
 
 open(Engine, Path, DbOptions) ->
@@ -235,11 +246,11 @@ open2(Engine, Path, DbOptions, State)
   when is_list(Path) ->
     DirName = filename:dirname(Path),
     case filelib:ensure_dir(DirName) of
-	ok ->
-	    NewState = State#cozo{ db_path = Path },
-	    open3(Engine, Path ++ "\n", DbOptions, NewState);
-	Elsewise ->
-	    Elsewise
+        ok ->
+            NewState = State#cozo{ db_path = Path },
+            open3(Engine, Path ++ "\n", DbOptions, NewState);
+        Elsewise ->
+            Elsewise
     end;
 open2(_, Path, _, _) ->
     Reason = {bad_path, Path},
@@ -254,14 +265,14 @@ open2(_, Path, _, _) ->
 open3(Engine, Path, DbOptions, State)
   when is_map(DbOptions) ->
     try
-	Encoder = json_encoder(),
-	Json = Encoder:encode(DbOptions),
-	EncodedOptions = binary_to_list(Json) ++ "\n",
-	NewState = State#cozo{ db_options = DbOptions },
-	open_nif(Engine, Path, EncodedOptions, NewState)
+        Encoder = json_encoder(),
+        Json = Encoder:encode(DbOptions),
+        EncodedOptions = binary_to_list(Json) ++ "\n",
+        NewState = State#cozo{ db_options = DbOptions },
+        open_nif(Engine, Path, EncodedOptions, NewState)
     catch
-	_Error:Reason ->
-	    {error, Reason}
+        _Error:Reason ->
+            {error, Reason}
     end;
 open3(_, _, DbOptions, _) ->
     Reason = {bad_options, DbOptions},
@@ -275,15 +286,15 @@ open3(_, _, DbOptions, _) ->
 %%--------------------------------------------------------------------
 open_nif(Engine, Path, DbOptions, State) ->
     case cozo_nif:open_db(Engine, Path, DbOptions) of
-	{ok, DbId} ->
-	    NewState = State#cozo{ id = DbId
-				    , db_parent = self()
-				    },
-	    ?LOG_DEBUG("~p", [{cozo, open_nif, NewState}]),
-	    {ok, {DbId, NewState}};
-	Elsewise ->
-	    ?LOG_ERROR("~p", [{cozo, open_nif, Elsewise}]),
-	    Elsewise
+        {ok, DbId} ->
+            NewState = State#cozo{ id = DbId
+                                 , db_parent = self()
+                                 },
+            ?LOG_DEBUG("~p", [{cozo, open_nif, NewState}]),
+            {ok, NewState};
+        Elsewise ->
+            ?LOG_ERROR("~p", [{cozo, open_nif, Elsewise}]),
+            Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -298,15 +309,16 @@ open_nif(Engine, Path, DbOptions, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec close(Db) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Return :: ok | {error, term()}.
 
+close(#cozo{ id = Id }) -> close(Id);
 close(Db)
   when is_integer(Db) ->
     ?LOG_DEBUG("~p", [{cozo, close, [Db]}]),
     case cozo_nif:close_db(Db) of
-	ok -> ok;
-	{error, Error} -> {error, Error}
+        ok -> ok;
+        {error, Error} -> {error, Error}
     end.
 
 %%--------------------------------------------------------------------
@@ -327,11 +339,13 @@ close(Db)
 %% @end
 %%--------------------------------------------------------------------
 -spec run(Db, Query) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Query  :: db_query(),
       Return :: query_return().
 
-run(Db, Query) ->
+run(#cozo{ id = Db }, Query) -> run(Db, Query);
+run(Db, Query) 
+  when is_integer(Db) ->
     run(Db, Query, #{}, true).
 
 %%--------------------------------------------------------------------
@@ -352,12 +366,14 @@ run(Db, Query) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec run(Db, Query, Params) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Query  :: db_query(),
       Params :: query_params(),
       Return :: query_return().
 
-run(Db, Query, Params) ->
+run(#cozo{ id = Db }, Query, Params) -> run(Db, Query, Params);
+run(Db, Query, Params) 
+  when is_integer(Db) ->
     run(Db, Query, Params, true).
 
 %%--------------------------------------------------------------------
@@ -377,12 +393,14 @@ run(Db, Query, Params) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec run(Db, Query, Params, Mutable) -> Return when
-      Db      :: db_id(),
+      Db      :: db_id() | cozo(),
       Query   :: db_query(),
       Params  :: query_params(),
       Mutable :: query_mutable(),
       Return  :: query_return().
 
+run(#cozo{ id = Db }, Query, Params, Mutable) -> 
+    run(Db, Query, Params, Mutable);
 run(Db, Query, Params, Mutable)
   when is_binary(Query) ->
     run(Db, binary_to_list(Query), Params, Mutable);
@@ -407,12 +425,12 @@ run1(Db, Query, Params, Mutable) ->
     Encoder = json_encoder(),
     NewParams = binary_to_list(Encoder:encode(Params)) ++ "\n",
     case {NewQuery, NewParams, Mutable} of
-	{"\n", "\n", _} ->
-	    {error, "no query and no params"};
-	{NewQuery, NewParams, true} ->
-	    run_query_parser(Db, NewQuery, NewParams, 0);
-	{NewQuery, NewParams, false} ->
-	    run_query_parser(Db, NewQuery, NewParams, 1)
+        {"\n", "\n", _} ->
+            {error, "no query and no params"};
+        {NewQuery, NewParams, true} ->
+            run_query_parser(Db, NewQuery, NewParams, 0);
+        {NewQuery, NewParams, false} ->
+            run_query_parser(Db, NewQuery, NewParams, 1)
     end.
 
 %%--------------------------------------------------------------------
@@ -429,26 +447,28 @@ run1(Db, Query, Params, Mutable) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec import_relations(Db, Json) -> Return when
-      Db     :: pos_integer(),
+      Db     :: db_id() | cozo(),
       Json   :: map() | list(),
       Return :: {ok, map()} 
-	      | {error, term()}.
+              | {error, term()}.
 
+import_relations(#cozo{ id = Db }, Json) -> 
+    import_relations(Db, Json);
 import_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) ->
     try 
-	Encoder = json_encoder(),
-	EncodedJson = Encoder:encode(Json),
-	Payload =  binary_to_list(EncodedJson) ++ "\n",
-	import_relations1(Db, Payload)
+        Encoder = json_encoder(),
+        EncodedJson = Encoder:encode(Json),
+        Payload =  binary_to_list(EncodedJson) ++ "\n",
+        import_relations1(Db, Payload)
     catch
-	_:Reason -> {error, Reason}
+        _:Reason -> {error, Reason}
     end.
 
 import_relations1(Db, Json) ->
     case cozo_nif:import_relations_db(Db, Json) of
-	{ok, Result} -> decode_json(Result);
-	Elsewise -> Elsewise
+        {ok, Result} -> decode_json(Result);
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -465,26 +485,28 @@ import_relations1(Db, Json) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec export_relations(Db, Json) -> Return when
-      Db     :: pos_integer(),
+      Db     :: db_id() | cozo(),
       Json   :: map() | list(),
       Return :: {ok, map()}
-	      | {error, term()}.
+              | {error, term()}.
 
+export_relations(#cozo{ id = Db }, Json) ->
+    export_relations(Db, Json);
 export_relations(Db, Json)
   when is_integer(Db) andalso is_map(Json) ->
     try
-	Encoder = json_encoder(),
-	EncodedJson = Encoder:encode(Json),
-	AsList = binary_to_list(EncodedJson) ++ "\n",
-	export_relations1(Db, AsList)
+        Encoder = json_encoder(),
+        EncodedJson = Encoder:encode(Json),
+        AsList = binary_to_list(EncodedJson) ++ "\n",
+        export_relations1(Db, AsList)
     catch
-	_:Reason -> {error, Reason}
+        _:Reason -> {error, Reason}
     end.
 
 export_relations1(Db, Json) ->
     case cozo_nif:export_relations_db(Db, Json) of
-	{ok, Result} -> decode_json(Result);
-	Elsewise -> Elsewise
+        {ok, Result} -> decode_json(Result);
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -501,16 +523,17 @@ export_relations1(Db, Json) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec backup(Db, OutPath) -> Return when
-      Db      :: pos_integer(),
+      Db      :: db_id() | cozo(),
       OutPath :: string(),
       Return  :: {ok, map()}
-	       | {error, term()}.
+               | {error, term()}.
 
+backup(#cozo{ id = Db }, OutPath) -> backup(Db, OutPath);
 backup(Db, OutPath)
   when is_integer(Db) andalso is_list(OutPath) ->
     case cozo_nif:backup_db(Db, OutPath ++ "\n") of
-	{ok, Result} -> decode_json(Result);
-	Elsewise -> Elsewise
+        {ok, Result} -> decode_json(Result);
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -527,16 +550,17 @@ backup(Db, OutPath)
 %% @end
 %%--------------------------------------------------------------------
 -spec restore(Db, InPath) -> Return when
-      Db     :: pos_integer(),
+      Db     :: db_id() | cozo(),
       InPath :: string(),
       Return :: {ok, map()}
-	      | {error, term()}.
+              | {error, term()}.
 
+restore(#cozo{ id = Db }, InPath) -> restore(Db, InPath);
 restore(Db, InPath)
   when is_integer(Db) andalso is_list(InPath) ->
     case cozo_nif:restore_db(Db, InPath ++ "\n") of
-	{ok, Result} -> decode_json(Result);
-	Elsewise -> Elsewise
+        {ok, Result} -> decode_json(Result);
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -554,26 +578,27 @@ restore(Db, InPath)
 %% @end
 %%--------------------------------------------------------------------
 -spec import_backup(Db, Json) -> Return when
-      Db     :: pos_integer(),
+      Db     :: db_id() | cozo(),
       Json   :: map(),
       Return :: {ok, map()}
-	      | {error, term()}.
+              | {error, term()}.
 
+import_backup(#cozo{ id = Db }, Json) -> import_backup(Db, Json);
 import_backup(Db, Json)
   when is_integer(Db) andalso is_map(Json) ->
     try
-	Encoder = json_encoder(),
-	EncodedJson = Encoder:encode(Json),
-	Payload = binary_to_list(EncodedJson) ++ "\n",
-	import_backup1(Db, Payload)
+        Encoder = json_encoder(),
+        EncodedJson = Encoder:encode(Json),
+        Payload = binary_to_list(EncodedJson) ++ "\n",
+        import_backup1(Db, Payload)
     catch
-	_:Reason -> {error, Reason}
+        _:Reason -> {error, Reason}
     end.
 
 import_backup1(Db, Json) ->
     case cozo_nif:import_backup_db(Db, Json) of
-	{ok, Result} -> decode_json(Result);
-	Elsewise -> Elsewise
+        {ok, Result} -> decode_json(Result);
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -588,7 +613,7 @@ import_backup1(Db, Json) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec list_relations(Db) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Return :: query_return().
 
 list_relations(Db) ->
@@ -609,7 +634,7 @@ list_relations(Db) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec explain(Db, Query) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Query  :: string(),
       Return :: query_return().
 
@@ -629,7 +654,7 @@ explain(Db, Query) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec list_columns(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -649,7 +674,7 @@ list_columns(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec list_indices(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -675,13 +700,13 @@ list_indices(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec create_index(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
 
 create_index(Db, Name, Spec) ->
-    Command = string:join(["::index", "create", Name, Spec], " "),
+    Command = string:join(["::index", "create", Name, "{", Spec, "}"], " "),
     run(Db, Command).
 
 %%--------------------------------------------------------------------
@@ -702,7 +727,7 @@ create_index(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec delete_index(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -724,7 +749,7 @@ delete_index(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec describe(Db, Name, Description) -> Return when
-      Db          :: db_id(),
+      Db          :: db_id() | cozo(),
       Name        :: string(),
       Description :: string(),
       Return      :: query_return().
@@ -746,7 +771,7 @@ describe(Db, Name, Description) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec delete_relation(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -766,13 +791,13 @@ delete_relation(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec delete_relations(Db, Names) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Names  :: [string(), ...],
       Return :: query_return().
 
 delete_relations(Db, Names) ->
-    Relations = string:join(Names, ","),
-    run(Db, Relations).
+    Relations = string:join(Names, ", "),
+    delete_relation(Db, Relations).
 
 %%--------------------------------------------------------------------
 %% @doc Unstable interface. Display triggers.
@@ -786,7 +811,7 @@ delete_relations(Db, Names) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec get_triggers(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -823,13 +848,27 @@ get_triggers(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec set_triggers(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
 
 set_triggers(Db, Name, Spec) ->
-    Command = string:join(["::show_triggers", Name, Spec], " "),
+    Command = string:join(["::set_triggers", Name, Spec], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Reset/delete a trigger.
+%%
+%% @end 
+%%--------------------------------------------------------------------
+-spec delete_triggers(Db, Name) -> Return when
+      Db     :: db_id() | cozo(),
+      Name   :: string(),
+      Return :: query_return().
+    
+delete_triggers(Db, Name) ->
+    Command = string:join(["::set_triggers", Name], " "),
     run(Db, Command).
 
 %%--------------------------------------------------------------------
@@ -841,7 +880,7 @@ set_triggers(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec create_hnsw(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -859,7 +898,7 @@ create_hnsw(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec delete_hnsw(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -894,7 +933,7 @@ create_lsh(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec delete_lsh(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -910,7 +949,7 @@ delete_lsh(Db, Name) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec create_fts(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -928,7 +967,7 @@ create_fts(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec delete_fts(Db, Name) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Return :: query_return().
 
@@ -942,18 +981,43 @@ delete_fts(Db, Name) ->
 %% == Examples ==
 %%
 %% ```
-%% {ok, _} = cozo:set_access_level(Db, Level, Name).
+%% % require a relation
+%% % {ok, _} = cozo:create_relation(Db, stored, c1).
+%% {ok, _} = cozo:set_access_level(Db, hidden, "stored").
+%% {ok, _} = cozo:set_access_level(Db, read_only, "stored").
+%% {ok, _} = cozo:set_access_level(Db, protected, "stored").
+%% {ok, _} = cozo:set_access_level(Db, normal, "stored").
+%% '''
+%%
+%% These functions are equivalent to execute:
+%%
+%% ```
+%% {ok, _} = cozo:run(Db, "::access_level hidden c1"
+%% {ok, _} = cozo:run(Db, "::access_level read_only c1"
+%% {ok, _} = cozo:run(Db, "::access_level protected c1"
+%% {ok, _} = cozo:run(Db, "::access_level normal c1"
 %% '''
 %%
 %% @end
 %%--------------------------------------------------------------------
 -spec set_access_level(Db, Level, Name) -> Return when
-      Db     :: db_id(),
-      Level  :: string(),
+      Db     :: db_id() | cozo(),
+      Level  :: relation_access_levels(),
       Name   :: string(),
       Return :: query_return().
 
-set_access_level(Db, Level, Name) ->
+set_access_level(Db, normal, Name) -> 
+    set_access_level1(Db, "normal", Name);
+set_access_level(Db, protected, Name) -> 
+    set_access_level1(Db, "protected", Name);
+set_access_level(Db, read_only, Name) -> 
+    set_access_level1(Db, "read_only", Name);
+set_access_level(Db, hidden, Name) ->
+    set_access_level1(Db, "hidden", Name);
+set_access_level(_Db, Level, _Name) ->
+    {error, {badlevel, Level}}.
+
+set_access_level1(Db, Level, Name) ->
     Command = string:join(["::access_level", Level, Name], " "),
     run(Db, Command).
 
@@ -963,19 +1027,34 @@ set_access_level(Db, Level, Name) ->
 %% == Examples ==
 %%
 %% ```
-%% {ok, _} = cozo:se_access_levelss(Db, Level, [N1, N2, N3]).
+%% % requires more than one relation
+%% % {ok, _} = cozo:create_relation(Db, stored1, c1).
+%% % {ok, _} = cozo:create_relation(Db, stored2, c2).
+%% {ok, _} = cozo:set_access_levels(Db, hidden, ["stored1", "stored2"]).
+%% {ok, _} = cozo:set_access_levels(Db, read_only, ["stored1", "stored2"]).
+%% {ok, _} = cozo:set_access_levels(Db, protected, ["stored1", "stored2"]).
+%% {ok, _} = cozo:set_access_levels(Db, normal, ["stored1", "stored2"]).
+%% '''
+%%
+%% These functions are equivalent to execute:
+%%
+%% ```
+%% {ok, _} = cozo:run("::access_level hidden stored1, stored2").
+%% {ok, _} = cozo:run("::access_level read_only stored1, stored2").
+%% {ok, _} = cozo:run("::access_level protected stored1, stored2").
+%% {ok, _} = cozo:run("::access_level normal stored1, stored2").
 %% '''
 %%
 %% @end
 %%--------------------------------------------------------------------
 -spec set_access_levels(Db, Level, Names) -> Return when
-      Db     :: db_id(),
-      Level  :: string(),
+      Db     :: db_id() | cozo(),
+      Level  :: relation_access_levels(),
       Names  :: [string(), ...],
       Return :: query_return().
 
 set_access_levels(Db, Level, Names) ->
-    Relations = string:join(Names, ","),
+    Relations = string:join(Names, ", "),
     set_access_level(Db, Level, Relations).
 
 %%--------------------------------------------------------------------
@@ -990,7 +1069,7 @@ set_access_levels(Db, Level, Names) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec get_running_queries(Db) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Return :: query_return().
 
 get_running_queries(Db) ->
@@ -1008,7 +1087,7 @@ get_running_queries(Db) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec kill(Db, Id) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Id     :: string(),
       Return :: query_return().
 
@@ -1028,7 +1107,7 @@ kill(Db, Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec compact(Db) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Return :: query_return().
 
 compact(Db) ->
@@ -1058,11 +1137,11 @@ compact(Db) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec create_relation(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string() | atom(),
       Spec   :: string() | atom()
-	      | [string(), ...]
-	      | [atom(), ...],
+              | [string(), ...]
+              | [atom(), ...],
       Return :: query_return().
 
 create_relation(Db, Name, Spec) 
@@ -1104,7 +1183,7 @@ to_list(Atom) when is_atom(Atom) -> atom_to_list(Atom).
 %% @end
 %%--------------------------------------------------------------------
 -spec replace_relation(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -1127,7 +1206,7 @@ replace_relation(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec put_row(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -1148,7 +1227,7 @@ put_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec update_row(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -1170,7 +1249,7 @@ update_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec delete_row(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -1194,7 +1273,7 @@ delete_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec ensure_row(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -1218,7 +1297,7 @@ ensure_row(Db, Name, Spec) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec ensure_not_row(Db, Name, Spec) -> Return when
-      Db     :: db_id(),
+      Db     :: db_id() | cozo(),
       Name   :: string(),
       Spec   :: string(),
       Return :: query_return().
@@ -1226,6 +1305,46 @@ ensure_row(Db, Name, Spec) ->
 ensure_not_row(Db, Name, Spec) ->
     Command = string:join([":ensure_not", Name, Spec], " "),
     run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Returns the path of the database.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_path(Db) -> Return when
+      Db     :: cozo(),
+      Return :: db_path().
+
+get_path(#cozo{ db_path = DbPath }) -> DbPath.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the id of the database.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_id(Db) -> Return when
+      Db     :: cozo(),
+      Return :: db_id().
+
+get_id(#cozo{ id = Db }) -> Db.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the options of the database.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_options(Db) -> Return when
+      Db     :: cozo(),
+      Return :: db_options().
+
+get_options(#cozo{ db_options = Options }) -> Options.
+
+%%--------------------------------------------------------------------
+%% @doc Return the engine of the database.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_engine(Db) -> Return when
+      Db     :: cozo(),
+      Return :: db_engine().
+
+get_engine(#cozo{ db_engine = Engine }) -> Engine.
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -1238,12 +1357,12 @@ ensure_not_row(Db, Name, Spec) ->
       Params     :: string(),
       Mutability :: 0 | 1,
       Return     :: {ok, map()}
-		  | {error, any()}.
+                  | {error, any()}.
 
 run_query_parser(Db, Query, Params, Mutability) ->
     case cozo_nif:run_query(Db, Query, Params, Mutability) of
-	{ok, Result} -> decode_json(Result);
-	Elsewise -> Elsewise
+        {ok, Result} -> decode_json(Result);
+        Elsewise -> Elsewise
     end.
 
 %%--------------------------------------------------------------------
@@ -1254,19 +1373,19 @@ run_query_parser(Db, Query, Params, Mutability) ->
 -spec decode_json(Message) -> Return when
       Message :: string() | binary() | bitstring(),
       Return  :: {ok, map()}
-	       | {error, term()}.
+               | {error, term()}.
 
 decode_json(Message) ->
     Decoder = json_decoder(),
     try Decoder:decode(Message) of
-	{ok, Decoded} -> 
-	    {ok, Decoded};
-	{error, Error} -> 
-	    {error, {Error, Message}};
-	Elsewise -> 
-	    Elsewise
+        {ok, Decoded} -> 
+            {ok, Decoded};
+        {error, Error} -> 
+            {error, {Error, Message}};
+        Elsewise -> 
+            Elsewise
     catch
-	error:_Reason -> {error, Message}
+        error:_Reason -> {error, Message}
     end.
 
 %%--------------------------------------------------------------------
@@ -1290,9 +1409,9 @@ decode_json(Message) ->
 
 create_filepath(Path, Prefix, Length) ->
     Alphabet =
-	"abcdefghijklmnopqrstuvwxyz"
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	"0123456789",
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "0123456789",
     AlphabetLength = length(Alphabet),
     RandomString = crypto:strong_rand_bytes(Length),
     RandomName = [ lists:nth((X rem AlphabetLength)+1, Alphabet)

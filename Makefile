@@ -5,6 +5,35 @@ unexport LDFLAGS
 unexport CFLAGS
 unexport CXXFLAGS
 
+######################################################################
+# template to generate the targets
+######################################################################
+define pandoc_template =
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).pdf
+$$(BUILD_DIR)/$(1).pdf:
+	$(PANDOC) -f markdown -t pdf -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).epub
+$$(BUILD_DIR)/$(1).epub:
+	$(PANDOC) -f markdown -t epub -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).txt
+$$(BUILD_DIR)/$(1).txt:
+	$(PANDOC) -f markdown -t plain -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).html
+$$(BUILD_DIR)/$(1).html:
+	$(PANDOC) -f markdown -t html -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+endef
+
 ################################################################################
 # GLOBAL Configuration
 ################################################################################
@@ -15,6 +44,12 @@ CURDIR := $(shell pwd)
 BASEDIR := $(abspath $(CURDIR)/..)
 PROJECT ?= $(notdir $(BASEDIR))
 PROJECT := $(strip $(PROJECT))
+
+BUILD_DIR ?= _build/notes
+NOTES_DIR ?= notes
+NOTES = $(shell ls $(NOTES_DIR) | grep -E "^[0-9]+-")
+PANDOC_OPTS = -C
+PANDOC = pandoc $(PANDOC_OPTS)
 
 ################################################################################
 # ERTS Configuration
@@ -48,8 +83,6 @@ else ifeq ($(UNAME_M), arm64)
 	COZO_LIB_ARCH = aarch64
 else ifeq ($(UNAME_M), armv7l)
 	COZO_LIB_ARCH = armv7
-else
-	$(error "Cozo doesn't support $(UNAME_M) architecture")
 endif
 
 # Operating System Auto Configuration
@@ -62,8 +95,6 @@ else ifeq ($(UNAME_SYS), Linux)
 	COZO_LIB_OS = unknown-linux-gnu
 	COZO_LIBC_EXT = so
 	LDFLAGS = -shared
-else
-	$(error "Cozo does not support $(UNAME_SYS) operating system")
 endif
 
 # Configure checksum based on the os/arch
@@ -108,44 +139,16 @@ ENV_BOOTSTRAP ?= LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) CFLAG_RUNTIME_LIBRARY_PATH=$
 help:
 	@echo "Usage: make [all|deps|compile|test|cover|dialyzer|doc|hex|shell|clean]"
 
-.PHONY += all
-all: deps compile test cover dialyzer doc
+######################################################################
+# create the build directory if not present
+######################################################################
+$(BUILD_DIR):
+	mkdir -p $@
 
-deps: $(PRIV_DIR)/cozo_nif.so
-
-.PHONY += compile
-compile:
-	$(ENV_BOOTSTRAP) rebar3 compile
-
-.PHONY += test
-test:
-	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 ct
-
-.PHONY += doc
-doc:
-	$(ENV_BOOTSTRAP) rebar3 ex_doc skip_deps=true
-
-.PHONY += shell
-shell:
-	$(ENV_BOOTSTRAP) rebar3 shell
-
-.PHONY += cover
-cover:
-	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 cover
-
-.PHONY += dialyzer
-dialyzer:
-	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 dialyzer
-
-.PHONY += hex
-hex:
-	$(ENV_BOOTSTRAP) rebar3 hex build
-
-.PHONY += clean
-clean:
-	-rm $(TARGETS)
-
-.PHONY: $(.PHONY)
+######################################################################
+# generate all templates based on notes directory name
+######################################################################
+$(foreach note,$(NOTES),$(eval $(call pandoc_template,$(note))))
 
 ################################################################################
 # Main Targets
@@ -176,3 +179,49 @@ ifeq ($(UNAME_SYS), Darwin)
 endif
 	$(CC) c_src/cozo_nif.c $(CC_OPTS) -o $(@)
 
+.PHONY += all
+all: deps compile test cover dialyzer doc
+
+.PHONY += deps
+deps: $(PRIV_DIR)/cozo_nif.so
+
+.PHONY += compile
+compile:
+	$(ENV_BOOTSTRAP) rebar3 compile
+
+.PHONY += test
+test:
+	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 ct
+
+.PHONY += doc
+doc:
+	$(ENV_BOOTSTRAP) rebar3 ex_doc skip_deps=true
+
+.PHONY += notes
+notes: $(BUILD_DIR) $(NOTES_TARGETS)
+
+.PHONY += shell
+shell:
+	$(ENV_BOOTSTRAP) rebar3 shell
+
+.PHONY += cover
+cover:
+	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 cover
+
+.PHONY += dialyzer
+dialyzer:
+	$(ENV_BOOTSTRAP) RUST_BACKTRACE=1 rebar3 dialyzer
+
+.PHONY += hex
+hex:
+	$(ENV_BOOTSTRAP) rebar3 hex build
+
+.PHONY += clean
+clean: clean-notes
+	-rm $(TARGETS)
+
+.PHONY += clean-notes
+clean-notes:
+	-rm $(NOTES_TARGETS)
+
+.PHONY: $(.PHONY)

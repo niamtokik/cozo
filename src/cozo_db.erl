@@ -31,6 +31,37 @@
 %%% @author Mathieu Kerjouan
 %%%
 %%% @doc Isolated cozodb in gen_statem process.
+%%%
+%%% == Standard ==
+%%%
+%%% ```
+%%% '''
+%%%
+%%% == Master/Slave ==
+%%%
+%%% ```
+%%%                     ________
+%%%  ________          |  ______|_
+%%% |        |   +---->| |  ______|_
+%%% | master |--(*)----->| |        |
+%%% |________|   +-------->| slaves |
+%%%                        |________|
+%%%
+%%%  master: read-write/all
+%%%  slave: read-write/master, read-only/all
+%%%
+%%% '''
+%%%
+%%% == Replicated ==
+%%%
+%%% ```
+%%% '''
+%%%
+%%% == Distributed ==
+%%%
+%%% ```
+%%% '''
+%%%
 %%% @end
 %%%===================================================================
 -module(cozo_db).
@@ -42,25 +73,39 @@
 -export([start_link/1, start_link/2]).
 -export([stop/1]).
 
-% API.
+% gen_statem API.
+-export([get_path/1, get_id/1, get_options/1, get_engine/1]).
 -export([call/2, call/3, cast/2]).
--export([run/2, run/3, run/4]).
+
+% cozo API
+-export([open/0, open/1, open/2, open/3]).
+-export([close/1]).
+-export([run/2,run/3,run/4]).
 -export([import_relations/2, export_relations/2]).
 -export([backup/2, restore/2, import_backup/2]).
--export([list_relations/1, explain/2]).
--export([list_columns/2, list_indices/2]).
--export([describe/3, remove_relation/2, get_triggers/2]).
+-export([list_relations/1]).
+-export([delete_relation/2, delete_relations/2]).
+-export([create_relation/3, replace_relation/3]).
+-export([put_row/3, update_row/3, delete_row/3]).
+-export([ensure_row/3, ensure_not_row/3]).
+-export([list_indices/2, create_index/3, delete_index/2]).
+-export([get_triggers/2, set_triggers/3]).
+-export([create_hnsw/3, delete_hnsw/2]).
+-export([create_lsh/3, delete_lsh/2]).
+-export([create_fts/3, delete_fts/2]).
+-export([list_columns/2]).
+-export([explain/2, describe/3]).
 -export([set_access_level/3, set_access_levels/3]).
 -export([get_running_queries/1, kill/2, compact/1]).
--export([create_relation/3, replace_relation/3]).
--export([put_row/3, update_row/3, remove_row/3]).
--export([ensure_row/3, ensure_not_row/3]).
-
-% Internal functions
 -export([callback_mode/0, init/1, terminate/3]).
 -export([standard/3]).
+
+% extra includes
 -include_lib("kernel/include/logger.hrl").
 -include("cozo.hrl").
+
+% default parameter
+-define(DEFAULT_OPEN, start).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -104,19 +149,64 @@ cast(Pid, Message) -> gen_statem:cast(Pid, Message).
 
 %%--------------------------------------------------------------------
 %% @doc
+%% @see start/1
+%% @see cozo:open/0
+%% @end
+%%--------------------------------------------------------------------
+open() -> ?DEFAULT_OPEN([]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see start/1
+%% @see cozo:open/1
+%% @end
+%%--------------------------------------------------------------------
+open(Engine) -> ?DEFAULT_OPEN([{engine, Engine}]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see start/1
+%% @see cozo:open/2
+%% @end
+%%--------------------------------------------------------------------
+open(Engine, Path) ->
+    ?DEFAULT_OPEN([{engine, Engine}
+		  ,{path, Path}
+		  ]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see start/1
+%% @see cozo:open/3
+%% @end
+%%--------------------------------------------------------------------
+open(Engine, Path, DbOptions) ->
+    ?DEFAULT_OPEN([{engine, Engine}
+                  ,{path, Path}
+                  ,{options, DbOptions}
+                  ]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see stop/1
+%% @see cozo:close/1
+%% @end
+%%--------------------------------------------------------------------
+close(Pid) -> cast(Pid, close).
+
+%%--------------------------------------------------------------------
+%% @doc
 %% @see cozo:run/2
 %% @end
 %%--------------------------------------------------------------------
-run(Pid, Query) ->
-    call(Pid, {run, [Query]}).
+run(Pid, Query) -> call(Pid, {run, [Query]}).
 
 %%--------------------------------------------------------------------
 %% @doc
 %% @see cozo:run/3
 %% @end
 %%--------------------------------------------------------------------
-run(Pid, Query, Params) ->
-    call(Pid, {run, [Query, Params]}).
+run(Pid, Query, Params) -> call(Pid, {run, [Query, Params]}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -211,8 +301,16 @@ describe(Pid, Name, Description) ->
 %% @see cozo:remove_relation/2
 %% @end
 %%--------------------------------------------------------------------
-remove_relation(Pid, Name) ->
-    call(Pid, {remove_relation, [Name]}).
+delete_relation(Pid, Name) ->
+    call(Pid, {delete_relation, [Name]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:remove_relation/2
+%% @end
+%%--------------------------------------------------------------------
+delete_relations(Pid, Names) ->
+    call(Pid, {delete_relations, [Names]}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -296,11 +394,11 @@ update_row(Pid, Name, Spec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% @see cozo:remove_row/3
+%% @see cozo:delete_row/3
 %% @end
 %%--------------------------------------------------------------------
-remove_row(Pid, Name, Spec) ->
-    call(Pid, {remove_row, [Name, Spec]}).
+delete_row(Pid, Name, Spec) ->
+    call(Pid, {delete_row, [Name, Spec]}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -319,6 +417,78 @@ ensure_not_row(Pid, Name, Spec) ->
     call(Pid, {ensure_not_row, [Name, Spec]}).
 
 %%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:create_index/3
+%% @end
+%%--------------------------------------------------------------------
+create_index(Pid, Name, Spec) ->
+    call(Pid, {create_index, [Name, Spec]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:delete_index/2
+%% @end
+%%--------------------------------------------------------------------
+delete_index(Pid, Name) ->
+    call(Pid, {delete_index, [Name]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:set_triggers/3
+%% @end
+%%--------------------------------------------------------------------
+set_triggers(Pid, Name, Spec) ->
+    call(Pid, {set_triggers, [Name, Spec]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:create_hnsw/3
+%% @end
+%%--------------------------------------------------------------------
+create_hnsw(Pid, Name, Spec) ->
+    call(Pid, {create_hnsw, [Name, Spec]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:delete_index/2
+%% @end
+%%--------------------------------------------------------------------
+delete_hnsw(Pid, Name) ->
+    call(Pid, {delete_hnsw, [Name]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:create_lsh/3
+%% @end
+%%--------------------------------------------------------------------
+create_lsh(Pid, Name, Spec) ->
+    call(Pid, {create_lsh, [Name, Spec]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:delete_lsh/2
+%% @end
+%%--------------------------------------------------------------------
+delete_lsh(Pid, Name) ->
+    call(Pid, {delete_lsh, [Name]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:create_fts/3
+%% @end
+%%--------------------------------------------------------------------
+create_fts(Pid, Name, Spec) ->
+    call(Pid, {create_fts, [Name, Spec]}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @see cozo:delete_fts/2
+%% @end
+%%--------------------------------------------------------------------
+delete_fts(Pid, Name) ->
+    call(Pid, {delete_fts, [Name]}).
+
+%%--------------------------------------------------------------------
 %% @hidden
 %% @doc
 %% @end
@@ -332,18 +502,45 @@ callback_mode() -> state_functions.
 %%--------------------------------------------------------------------
 init(Args) ->
     Engine = proplists:get_value(engine, Args, mem),
+    DbPath = application:get_env(cozo, db_path, "/tmp"),
+    DbPrefix = application:get_env(cozo, db_filename_prefix, "cozodb_server_"),
     Path = case proplists:get_value(path, Args) of
-	       undefined ->
-		   cozo:create_filepath("/tmp", "cozodb_server_", 32);
-	       Elsewise -> Elsewise
-	   end,
+               undefined ->
+                   cozo:create_filepath(DbPath, DbPrefix, 32);
+               Elsewise -> 
+                   Elsewise
+           end,
     Options = proplists:get_value(options, Args, #{}),
     case cozo:open(Engine, Path, Options) of
-	{ok, {_Id, State}} ->
-	    {ok, standard, State};
-	{error, Error} ->
-	    {stop, Error}
+        {ok, State} ->
+            {ok, standard, State};
+        {error, Error} ->
+            {stop, Error}
     end.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the path used by the database.
+%% @end
+%%--------------------------------------------------------------------
+get_path(Pid) -> call(Pid, {get, path}).
+
+%%--------------------------------------------------------------------
+%% @doc Returns database id.
+%% @end
+%%--------------------------------------------------------------------
+get_id(Pid) -> call(Pid, {get, id}).
+
+%%--------------------------------------------------------------------
+%% @doc Returns the options used by the database.
+%% @end
+%%--------------------------------------------------------------------
+get_options(Pid) -> call(Pid, {get, options}).
+
+%%--------------------------------------------------------------------
+%% @doc Returns the engine used by the database.
+%% @end
+%%--------------------------------------------------------------------
+get_engine(Pid) -> call(Pid, {get, engine}).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -377,13 +574,13 @@ standard(EventType, EventContent, Data) ->
 query(Function, Args, From, #cozo{ id = Id } = Data)
   when is_atom(Function) andalso is_list(Args) ->
     try
-	CallArgs = [Id|Args],
-	Return = erlang:apply(cozo, Function, CallArgs),
-	?LOG_DEBUG("~p", [{self(), ?MODULE, query, CallArgs, Return}]),
-	{keep_state, Data, [{reply, From, Return}]}
+        CallArgs = [Id|Args],
+        Return = erlang:apply(cozo, Function, CallArgs),
+        ?LOG_DEBUG("~p", [{self(), ?MODULE, query, CallArgs, Return}]),
+        {keep_state, Data, [{reply, From, Return}]}
     catch
-	Error:Reason ->
-	    {keep_state, Data, [{reply, From, {Error, Reason}}]}
+        Error:Reason ->
+            {keep_state, Data, [{reply, From, {Error, Reason}}]}
     end;
 query(Function, Args, From, Data) ->
     ?LOG_ERROR("~p", [{self(), ?MODULE, query, Function, Args}]),
