@@ -139,7 +139,7 @@ isolation, you can use `cozo` module.
 
 ```erlang
 % open a new database in memory
-{ok, {0, _}} = cozo:open().
+{ok, Db} = cozo:open().
 
 % run a query
 {ok,#{ <<"headers">> => [<<"_0">>,<<"_1">>,<<"_2">>],

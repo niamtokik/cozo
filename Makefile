@@ -16,6 +16,41 @@ BASEDIR := $(abspath $(CURDIR)/..)
 PROJECT ?= $(notdir $(BASEDIR))
 PROJECT := $(strip $(PROJECT))
 
+BUILD_DIR ?= _build/notes
+NOTES_DIR ?= notes
+NOTES = $(shell ls $(NOTES_DIR) | grep -E "^[0-9]+-")
+PANDOC_OPTS = -C
+PANDOC = pandoc $(PANDOC_OPTS)
+
+######################################################################
+# template to generate the targets
+######################################################################
+define pandoc_template =
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).pdf
+$$(BUILD_DIR)/$(1).pdf:
+	$(PANDOC) -f markdown -t pdf -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).epub
+$$(BUILD_DIR)/$(1).epub:
+	$(PANDOC) -f markdown -t epub -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).txt
+$$(BUILD_DIR)/$(1).txt:
+	$(PANDOC) -f markdown -t plain -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+
+NOTES_TARGETS += $$(BUILD_DIR)/$(1).html
+$$(BUILD_DIR)/$(1).html:
+	$(PANDOC) -f markdown -t html -o $$@ \
+		--resource-path="$$(NOTES_DIR)/$(1)" \
+		"$$(NOTES_DIR)/$(1)/README.md"
+endef
+
 ################################################################################
 # ERTS Configuration
 ################################################################################
@@ -108,9 +143,21 @@ ENV_BOOTSTRAP ?= LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) CFLAG_RUNTIME_LIBRARY_PATH=$
 help:
 	@echo "Usage: make [all|deps|compile|test|cover|dialyzer|doc|hex|shell|clean]"
 
+######################################################################
+# create the build directory if not present
+######################################################################
+$(BUILD_DIR):
+	mkdir -p $@
+
+######################################################################
+# generate all templates based on notes directory name
+######################################################################
+$(foreach note,$(NOTES),$(eval $(call pandoc_template,$(note))))
+
 .PHONY += all
 all: deps compile test cover dialyzer doc
 
+.PHONY += deps
 deps: $(PRIV_DIR)/cozo_nif.so
 
 .PHONY += compile
@@ -124,6 +171,9 @@ test:
 .PHONY += doc
 doc:
 	$(ENV_BOOTSTRAP) rebar3 ex_doc skip_deps=true
+
+.PHONY += notes
+notes: $(BUILD_DIR) $(NOTES_TARGETS)
 
 .PHONY += shell
 shell:
@@ -142,8 +192,12 @@ hex:
 	$(ENV_BOOTSTRAP) rebar3 hex build
 
 .PHONY += clean
-clean:
+clean: clean-notes
 	-rm $(TARGETS)
+
+.PHONY += clean-notes
+clean-notes:
+	-rm $(NOTES_TARGETS)
 
 .PHONY: $(.PHONY)
 

@@ -56,6 +56,15 @@ jobs:
           path: doc
           retention-days: 5
 
+      # - name: "Build notes"
+      #   run: make notes
+      # - name: "Upload notes"
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: documentation
+      #     path: _build/notes
+      #     retention-days: 5
+
       - name: "Build hex package"
         run: make hex
       - name: "Upload hex package"
