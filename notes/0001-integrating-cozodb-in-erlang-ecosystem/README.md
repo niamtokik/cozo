@@ -18,14 +18,96 @@ abstract: |
 
 ## Introduction
 
- - [ ] introduction Datalog
+ - [ ] introducing Datalog
  - [ ] introducing Cozodb
  - [ ] introducing NIF
+
+> Datalog is a declarative logic programming language. While it is
+> syntactically a subset of Prolog, Datalog generally uses a bottom-up
+> rather than top-down evaluation model. This difference yields
+> significantly different behavior and properties from Prolog. It is
+> often used as a query language for deductive databases. Datalog has
+> been applied to problems in data integration, networking, program
+> analysis, and more.[^datalog-wikipedia]
+
+Datalog is greatly inspired from Prolog, and because many Datalog
+implementation are not free and open-source, I will try to explain the
+concept behind Datalog using Prolog. When programming with Logic
+Programming languages like Prolog, a knowledge base is accessible
+during the execution of the program. You can see it as a database
+containing terms for the moment. If you can add terms, you can also
+design them. They you want to store users in your knowledge based. An
+user is defined by its name, its age and its password. An entry is
+called a fact, and we can add new one using `assert/1` followed by the
+definition of a new fact. Let adds three new user, *John Smith*, *Bill
+Kill* and "Luke Skywalker*.
+
+```prolog
+assert(user("John Smith", 42, "StrongPassword")).
+assert(user("Bill Kill", 57, "Beatrix")).
+assert(user("Luke Skywalker", 24, "IHateBranda")).
+```
+
+Directly from the REPL, you can easily extract the password by
+creating a query using `user/3` predicate composed by the name of the
+user as a static value, an empty variable and a named variable called
+`Password`. This last will return the content of the password field
+from the user.
+
+```prolog
+user("John Smith", _, Password).
+% Password = "Strong Password"
+```
+
+More than one facts have been added into the knowledge base, and using
+`findall/3` predicate, we can easily extract all the user name from
+it.
+
+```prolog
+findall(Name, user(Name, _, _), Xs).
+% Xs = ["John Smith", "Bill Kill", "Luke Skywalker"].
+```
+
+Filtering using guards can also be done.
+
+```prolog
+findall(Name, (user(Name, Age, _), Age>40), Xs).
+% Xs = ["John Smith", "Bill Kill"].
+```
+
+Creating more complex data-structures by composing data from facts is
+also possible.
+
+```prolog
+findall({Name, Password}, (user(Name, Age, Password)), Xs).
+% Xs = [{"John Smith", "Strong Password"}
+%     ,{"Bill Kill", "Beatrix"}
+%     ,{"Luke Skywalker", "IHateBranda"}].
+```
+
+Finally, if you want to extract all facts from the database, it's also
+an easy task.
+
+```prolog
+findall(user(Name, Age, Password), (user(Name, Age, Password)), Xs).
+% Xs = [user("John Smith", 42, "Strong Password")
+%      ,user("Bill Kill", 57, "Beatrix")
+%      , user("Luke Skywalker", 24, "IHateBranda")].
+```
+
+[^datalog-wikipedia]:(https://en.wikipedia.org/wiki/Datalog)
 
 ## A Quick Overview of CozoDB
 
  - [ ] using CozoDB REPL
  - [ ] describe and use Cozoscript syntax
+
+> A FOSS embeddable, transactional, relational-graph-vector database,
+> across platforms and languages, with time travelling capability,
+> perfect as the long-term memory for LLMs and
+> AI.[^cozo-official-website]
+
+[^cozo-official-website]: https://www.cozodb.org/
 
 ## CozoDB Interface with `libcozo_c`
 
@@ -50,8 +132,80 @@ fetch the right version currently supported.
 make deps
 ```
 
+`ei.h` C header is required.
+
+```c
+#include <ei.h>
+```
+
+```c
+#include <erl_nif.h>
+```
+
+```c
+#include "cozo_c.h"
+```
+
+Because this implementation is using an external library, the
+definition of each exported functions from this one needs to be
+created prefixed with the keyword `extern` meaning "external
+references" outside of the scope of this program. It's basically a
+copy/paste from `cozo_c.h ` prototypes.
+
+```c
+extern void cozo_free_str(char *s);
+extern char *cozo_open_db(const char *engine, const char *path, const char *options, int32_t *db_id);
+extern bool cozo_close_db(int32_t id);
+extern char *cozo_run_query(int32_t db_id, const char *script_raw, const char *params_raw, bool immutable_query);
+extern char *cozo_import_relations(int32_t db_id, const char *json_payload);
+extern char *cozo_export_relations(int32_t db_id, const char *json_payload);
+extern char *cozo_backup(int32_t db_id, const char *out_path);
+extern char *cozo_restore(int32_t db_id, const char *in_path);
+extern char *cozo_import_from_backup(int32_t db_id, const char *json_payload);
+```
+
+`ERL_NIF_INIT` macro is needed to generate other internal functions
+and configure the NIF correctly. The first argument is the name of the
+module called `cozo_nif` here, and ...
+
+```c
+ERL_NIF_INIT(cozo_nif,nif_funcs,NULL,NULL,NULL,NULL)
+```
+
+The list of functions and their mapping on the Erlang side is defined
+in `ErlNifFunc`. 8 functions are exported.
+
+```c
+static ErlNifFunc nif_funcs[] =
+  {
+   {"open_db_nif", 3, open_db},
+   {"close_db_nif", 1, close_db},
+   {"run_query_nif", 4, run_query},
+   {"import_relations_db_nif", 2, import_relations_db},
+   {"export_relations_db_nif", 2, export_relations_db},
+   {"backup_db_nif", 2, backup_db},
+   {"restore_db_nif", 2, restore_db},
+   {"import_backup_db_nif", 2, import_backup_db}
+  };
+```
+
+```c
+ERL_NIF_TERM atom_ok(ErlNifEnv *env) {
+  const char* atom = "ok";
+  return enif_make_atom(env, atom);
+}
+```
+
+```c
+ERL_NIF_TERM atom_error(ErlNifEnv *env) {
+  const char* atom = "error";
+  return enif_make_atom(env, atom);
+}
+```
+
 ## Erlang Interface to NIF
 
+ - [ ] describe `cozo_nif` module
  - [ ] describe `cozo` module
  - [ ] describe `cozo_db` module
 
