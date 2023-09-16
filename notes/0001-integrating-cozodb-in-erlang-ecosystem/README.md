@@ -154,9 +154,11 @@ copy/paste from `cozo_c.h ` prototypes.
 
 ```c
 extern void cozo_free_str(char *s);
-extern char *cozo_open_db(const char *engine, const char *path, const char *options, int32_t *db_id);
+extern char *cozo_open_db(const char *engine, const char *path, 
+                          const char *options, int32_t *db_id);
 extern bool cozo_close_db(int32_t id);
-extern char *cozo_run_query(int32_t db_id, const char *script_raw, const char *params_raw, bool immutable_query);
+extern char *cozo_run_query(int32_t db_id, const char *script_raw, 
+                            const char *params_raw, bool immutable_query);
 extern char *cozo_import_relations(int32_t db_id, const char *json_payload);
 extern char *cozo_export_relations(int32_t db_id, const char *json_payload);
 extern char *cozo_backup(int32_t db_id, const char *out_path);
@@ -219,9 +221,56 @@ ERL_NIF_TERM atom_error(ErlNifEnv *env) {
  - [ ] cozodb interface with rustler
  - [ ] erlang terms to cozodb bytecode
 
+Using Cozoscript to execute queries on CozoDB is enough if you want to
+create a simple interface to users wanting their own isolated
+environment using something already documented and
+tested. Unfortunately, this feature is hard to integrate *correctly*
+with Erlang, and by *correcty* I mean creating a request and get back
+a result with Erlang terms. In fact, creates something similar to
+Match Specifications[^erlang-match-specification] in Erlang.
+
+To accomplish something like this, a new interface using Rust[^rust]
+and Rustler[^rustler] with `cozo-core`[^cozo-core] should be used
+instead of `libcozo_c`. It will require an important amount of work
+but should offer a better integration with Erlang, by letting this
+langage generating CozoDB bytecode.
+
+Another improvement, perhaps before doing bytecode compilation from
+Erlang to CozoDB, is to create a fully compatible Cozoscript
+implementation in pure Erlang. Indeed, the
+specifications[^cozoscript-specifications] are freely available and
+can be easily converted to something Erlang compatible with
+`leex`[^erlang-leex] and `yecc`[^erlang-yecc].
+
+Finally, `erlang_nif.c` is not tested against memory leaks and other
+kind of C related issues. It should be planned to create test suites
+and analyze this part of the code with Valgrind[^valgrind].
+
+[^erlang-match-specification]: [https://www.erlang.org/doc/apps/erts/match_spec.html](https://www.erlang.org/doc/apps/erts/match_spec.html)
+[^rust]: [https://www.rust-lang.org/](https://www.rust-lang.org/)
+[^rustler]: [https://docs.rs/crate/rustler](https://docs.rs/crate/rustler)
+[^cozo-core]: [https://github.com/cozodb/cozo/tree/main/cozo-core](https://github.com/cozodb/cozo/tree/main/cozo-core)
+[^cozoscript-specifications]: [https://github.com/cozodb/cozo/blob/main/cozo-core/src/cozoscript.pest](https://github.com/cozodb/cozo/blob/main/cozo-core/src/cozoscript.pest)
+[^erlang-leex]: [https://www.erlang.org/doc/man/leex](https://www.erlang.org/doc/man/leex)
+[^erlang-yecc]: [https://www.erlang.org/doc/man/yecc](https://www.erlang.org/doc/man/yecc)
+[^valgrind]: [https://valgrind.org/](https://valgrind.org/)
+
 ## Conclusion
 
- - [ ] issues with library path
+Integrating `libcozo_c` using Erlang NIF was easier than
+anticipated. In fact, CozoDB project is well documented. The library
+was nicely designed, and the interfaces were quickly created without
+big trouble. Thus, one the most annoying problem was related to local
+path for C libraries and headers, but this is related to LLVM or GCC
+and the configuration used during this implementation. In less than a
+week, this application was usable, documented, tested and
+specified.
+
+Special thanks to Alejandro M. Ramallo[^alejandro-m-ramallo-github]
+who shared this project idea with me and was here to add MacOS
+support.
+
+[^alejandro-m-ramallo-github]: [https://github.com/aramallo](https://github.com/aramallo)
 
 ## References and Resources
 
