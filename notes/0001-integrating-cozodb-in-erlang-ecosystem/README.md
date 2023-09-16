@@ -3,17 +3,19 @@ status: draft
 date: 2023-09-13
 title: Integrating CozoDB in Erlang Ecosystem
 subtitle: Mixing NIF Interfaces, CozoDB, Datalog and Erlang Together
-author: Mathieu Kerjouan 
+author: Mathieu Kerjouan
 keywords: [cozo,cozodb,erlang,otp,datalog]
 license: CC BY-NC-ND
 abstract: |
-  Erlang/OTP has been created with an incredible toolbox, 
-  including different application to store data. ETS, an in-memory 
-  Erlang term storage used as cache. DETS, an long term on disk 
-  storage facility based on ETS. Finally, Mnesia, a database using
-  ETS and DETS to create distributed DBMS. These applications are
+  Erlang/OTP has been created with an incredible toolbox,
+  including different application to store data. `ETS`, an in-memory
+  Erlang term storage used as cache; `DETS`, an long term on disk
+  storage facility based on ETS and finally, `Mnesia`, a database using
+  `ETS` and `DETS` to create distributed DBMS. These applications are
   not external projects but are delivered by default with each
-  releases.
+  releases. Erlang community is also providing some alternative, in
+  particular with RocksDB. In this paper, an integration of CozoDB
+  v0.7.2 is presented using its C interface called `libcozo_c`.
 ---
 
 ## Introduction
@@ -38,9 +40,10 @@ during the execution of the program. You can see it as a database
 containing terms for the moment. If you can add terms, you can also
 design them. They you want to store users in your knowledge based. An
 user is defined by its name, its age and its password. An entry is
-called a fact, and we can add new one using `assert/1` followed by the
-definition of a new fact. Let adds three new user, *John Smith*, *Bill
-Kill* and "Luke Skywalker*.
+called a fact, and we can add new one using
+`assert/1`[^prolog-assert/1] followed by the definition of a new
+fact. Let adds three new user, *John Smith*, *Bill Kill* and *Luke
+Skywalker*.
 
 ```prolog
 assert(user("John Smith", 42, "StrongPassword")).
@@ -60,8 +63,8 @@ user("John Smith", _, Password).
 ```
 
 More than one facts have been added into the knowledge base, and using
-`findall/3` predicate, we can easily extract all the user name from
-it.
+`findall/3`[^prolog-findall/3] predicate, we can easily extract all
+the user name from it.
 
 ```prolog
 findall(Name, user(Name, _, _), Xs).
@@ -95,7 +98,29 @@ findall(user(Name, Age, Password), (user(Name, Age, Password)), Xs).
 %      , user("Luke Skywalker", 24, "IHateBranda")].
 ```
 
-[^datalog-wikipedia]:(https://en.wikipedia.org/wiki/Datalog)
+To remove one or more entry, `retract/1`[^prolog-retract/1] can be
+used.
+
+```prolog
+retract(user("Bill Kill", X, _).
+% X = 42
+```
+
+To purge all data, `abolish/1`[^prolog-abolish/2] can be used.
+
+```prolog
+abolish(user, 3).
+```
+
+These previous action on the knowledge base are not safe but
+transaction[^prolog-transaction] can be used instead.
+
+[^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
+[^prolog-assert/1]: [https://www.swi-prolog.org/pldoc/doc_for?object=assert/1](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)
+[^prolog-findall/3]: [https://www.swi-prolog.org/pldoc/doc_for?object=findall/3](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)
+[^prolog-retract/1]: [https://www.swi-prolog.org/pldoc/doc_for?object=retract/1](https://www.swi-prolog.org/pldoc/doc_for?object=retract/1)
+[^prolog-abolish/2]: [https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)
+[^prolog-transaction]: [https://www.swi-prolog.org/pldoc/man?section=transactions](https://www.swi-prolog.org/pldoc/man?section=transactions)
 
 ## A Quick Overview of CozoDB
 
@@ -107,7 +132,7 @@ findall(user(Name, Age, Password), (user(Name, Age, Password)), Xs).
 > perfect as the long-term memory for LLMs and
 > AI.[^cozo-official-website]
 
-[^cozo-official-website]: https://www.cozodb.org/
+[^cozo-official-website]: [https://www.cozodb.org/](https://www.cozodb.org/)
 
 ## CozoDB Interface with `libcozo_c`
 
@@ -154,10 +179,10 @@ copy/paste from `cozo_c.h ` prototypes.
 
 ```c
 extern void cozo_free_str(char *s);
-extern char *cozo_open_db(const char *engine, const char *path, 
+extern char *cozo_open_db(const char *engine, const char *path,
                           const char *options, int32_t *db_id);
 extern bool cozo_close_db(int32_t id);
-extern char *cozo_run_query(int32_t db_id, const char *script_raw, 
+extern char *cozo_run_query(int32_t db_id, const char *script_raw,
                             const char *params_raw, bool immutable_query);
 extern char *cozo_import_relations(int32_t db_id, const char *json_payload);
 extern char *cozo_export_relations(int32_t db_id, const char *json_payload);
@@ -191,6 +216,8 @@ static ErlNifFunc nif_funcs[] =
   };
 ```
 
+`atom_ok()` function creates an atom `ok`.
+
 ```c
 ERL_NIF_TERM atom_ok(ErlNifEnv *env) {
   const char* atom = "ok";
@@ -198,12 +225,191 @@ ERL_NIF_TERM atom_ok(ErlNifEnv *env) {
 }
 ```
 
+`atom_error()` function creates an atom `error`.
+
 ```c
 ERL_NIF_TERM atom_error(ErlNifEnv *env) {
   const char* atom = "error";
   return enif_make_atom(env, atom);
 }
 ```
+
+### `open_db` function
+
+The first interface implemented was created for
+`cozo_open_db()`[^libcozo-opendb] and called `open_db`.
+
+```c
+static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+```
+
+```c
+  // get the engine string length
+  unsigned int engine_length;
+  if (!enif_get_string_length(env, argv[0], &engine_length, ERL_NIF_UTF8)) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // get the path string length
+  unsigned int path_length;
+  if (!enif_get_string_length(env, argv[1], &path_length, ERL_NIF_UTF8)) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // get option length
+  unsigned int options_length;
+  if (!(enif_get_string_length(env, argv[2], &options_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // extract the engine string
+  char *engine = enif_alloc(engine_length);
+  if (!(enif_get_string(env, argv[0], engine, engine_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // extract the path string
+  char *path = enif_alloc(path_length);
+  if (!(enif_get_string(env, argv[1], path, path_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // extract the option string
+  char *options = enif_alloc(options_length);
+  if (!(enif_get_string(env, argv[2], options, options_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // create a new db with engine, path without options.
+  int db_id;
+  if (!cozo_open_db(engine, path, options, &db_id)) {
+    return enif_make_tuple2(env, atom_ok(env), enif_make_int(env, db_id));
+  }
+
+  return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "open_error"));
+}
+```
+
+[^libcozo-opendb]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23)
+
+### `close_db` function 
+
+`close_db()` function is an interface to
+`cozo_close_db()`[^libcozo-close].
+
+```c
+static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+```
+
+```c
+  int db_id;
+  if (!enif_get_int(env, argv[0], &db_id)) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  bool close_result = cozo_close_db(db_id);
+  if (close_result) {
+    return atom_ok(env);
+  }
+```
+
+```c
+  return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "close_error"));
+}
+```
+
+[^libcozo-close]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L37](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L37)
+
+### `run_query` function
+
+`run_query()` function is an interface to
+`cozo_run_query()`[^libcozo-runquery].
+
+```c
+static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+```
+
+```c
+  int db_id;
+  if (!enif_get_int(env, argv[0], &db_id)) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  unsigned int script_raw_length;
+  if (!enif_get_string_length(env, argv[1], &script_raw_length, ERL_NIF_UTF8)) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  unsigned int params_raw_length;
+  if (!enif_get_string_length(env, argv[2], &params_raw_length, ERL_NIF_UTF8)) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // immutability
+  int immutable;
+  if (!enif_get_int(env, argv[3], &immutable)) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // cozo query
+  char *script_raw = enif_alloc(script_raw_length);
+  if (!(enif_get_string(env, argv[1], script_raw, script_raw_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // extra parameters
+  char *params_raw = enif_alloc(params_raw_length);
+  if (!(enif_get_string(env, argv[2], params_raw, params_raw_length, ERL_NIF_UTF8))) {
+    return enif_make_badarg(env);
+  }
+```
+
+```c
+  // run the query and store the result in ret variable
+  char *cozo_result = cozo_run_query(db_id, script_raw, params_raw, 
+                                     immutable ? true : false);
+```
+
+```c
+  // convert ret into a string
+  ERL_NIF_TERM result_string = enif_make_string(env, cozo_result, ERL_NIF_UTF8);
+```
+
+```c
+  // free the memory mainte
+  cozo_free_str(cozo_result);
+```
+
+```c
+  return enif_make_tuple2(env, atom_ok(env), result_string);
+}
+```
+
+[^libcozo-runquery]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L47](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L47)
 
 ## Erlang Interface to NIF
 
@@ -236,7 +442,7 @@ ok = cozo_nif:close(DbId4).
  - [ ] usage example with `cozo` module
  - [ ] usage example with `cozo_db` module
 
-Types and data-structures are defined in 
+Types and data-structures are defined in
 
 ```erlang
 -type db_id()         :: 0 | pos_integer().
@@ -351,30 +557,136 @@ support.
 
 *Erlang Cozo Project on Github*,
 [https://github.com/niamtokik/cozo](https://github.com/niamtokik/cozo)
- 
+
 *CozoDB Official Website*,
 [https://www.cozodb.org/](https://www.cozodb.org/)
- 
+
 *CozoDB Official Documentation*,
 [https://docs.cozodb.org/en/latest/](https://docs.cozodb.org/en/latest/)
- 
+
 *CozoDB Official Repository*,
 [https://github.com/cozodb/cozo](https://github.com/cozodb/cozo)
- 
+
 *CozoDB 0.7.2 Release*,
 [https://github.com/cozodb/cozo/releases/tag/v0.7.2](https://github.com/cozodb/cozo/releases/tag/v0.7.2)
- 
+
 *Erlang NIFs Tutorial*,
 [https://www.erlang.org/doc/tutorial/nif.html](https://www.erlang.org/doc/tutorial/nif.html)
- 
+
 *Erlang `erl_nif` Manual Page*
 [https://www.erlang.org/doc/man/erl_nif.html](https://www.erlang.org/doc/man/erl_nif.html)
- 
+
 *Erlang `ets` Reference Manual*,
 [https://www.erlang.org/doc/man/ets.html](https://www.erlang.org/doc/man/ets.html)
- 
+
 *Erlang `dets` Reference Manual*,
 [https://www.erlang.org/doc/man/dets.html](https://www.erlang.org/doc/man/dets.html)
- 
+
 *Erlang `mnesia` Reference Manual*,
 [https://www.erlang.org/doc/apps/mnesia/index.html](https://www.erlang.org/doc/apps/mnesia/index.html)
+
+## ANNEXE A - Manual Building
+
+```sh
+git clone https://github.com/cozodb/cozo.git
+cd cozo
+git checkout v0.7.2
+cargo build -p cozo --release --verbose
+```
+
+```
+# release build:
+file target/release/cozo-bin
+file target/release/libcozo_c.so
+file target/release/libcozo_embedded.so
+
+# debug build:
+file target/debug/libcozo_c.so
+file target/debug/libcozo_embedded.so
+```
+
+```sh
+cargo build -p cozo-bin --release
+./target/debug/cozo-bin repl
+```
+
+## ANNEXE B - Building on OpenBSD
+
+At this time, cozodb does not work on OpenBSD because of missing
+support on `nanorand` crate.
+
+```sh
+git clone https://github.com/cozodb/cozo.git
+cd cozo
+git checkout v0.7.2
+cargo build -p cozo --release
+```
+
+Unfortunately, it fails with this error:
+
+```
+error[E0425]: cannot find function `backup_entropy` in this scope
+  --> /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/nanorand-0.7.0/
+       src/entropy.rs:51:2
+   |
+51 |     backup_entropy(out);
+   |     ^^^^^^^^^^^^^^ not found in this scope
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `nanorand` (lib) due to previous error
+warning: build failed, waiting for other jobs to finish...
+```
+
+A PR[^nanorand-rs-pr-40] has been merged in December 2022, fixing this
+issue for the next version of
+`nanorand`[^nanorand-rs-commit-1438]. This crate can be built locally
+without issue after this patch.
+
+```sh
+cargo add --git https://github.com/Absolucy/nanorand-rs  \
+  --package cozo --rev 1438c12483b58245a86c87df38e71ca1e023dedc nanorand
+```
+
+[^nanorand-rs-pr-40]: [https://github.com/Absolucy/nanorand-rs/pull/40](https://github.com/Absolucy/nanorand-rs/pull/40)
+[^nanorand-rs-commit-1438]: [https://github.com/Absolucy/nanorand-rs/commit/1438c12483b58245a86c87df38e71ca1e023dedc](https://github.com/Absolucy/nanorand-rs/commit/1438c12483b58245a86c87df38e71ca1e023dedc)
+
+## ANNEXE C - CozoDB Example with C
+
+Here a small text created during the first tests.
+
+```c
+#include <stdio.h>
+#include <unistd.h>
+#include <strings.h>
+#include "cozo_c.h"
+
+int main(int argc, char *argv[]) {
+  // create a new id
+  int32_t id;
+
+  // create an error string
+  char *t;
+
+  // open a new db as mem one
+  t = cozo_open_db("mem", "/tmp/t.db", "", &id);
+
+  // allocate 1024 byte and set them to zero
+  char *data = malloc(1024);
+  bzero(data, 1024);
+
+  // execute a query
+  data = cozo_run_query(id, "?[] <- [[1, 2, 3]]", "", true);
+  printf("%s\n", data);
+
+  // backup the database
+  cozo_backup(id, "/tmp/t2.db");
+
+  // free up memory
+  // in fact, we should use cozo_free_str.
+  free(data);
+
+  // close the database
+  bool ret = cozo_close_db(id);
+  return 0;
+}
+```
