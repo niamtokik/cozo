@@ -508,7 +508,8 @@ environment using something already documented and
 tested. Unfortunately, this feature is hard to integrate *correctly*
 with Erlang, and by *correcty* I mean creating a request and get back
 a result with Erlang terms. In fact, creates something similar to
-Match Specifications[^erlang-match-specification] in Erlang.
+Match Specifications[^erlang-match-specification] in Erlang. Something
+similar can be found in clojure datahike[^datahike] database.
 
 To accomplish something like this, a new interface using Rust[^rust]
 and Rustler[^rustler] with `cozo-core`[^cozo-core] should be used
@@ -528,6 +529,7 @@ kind of C related issues. It should be planned to create test suites
 and analyze this part of the code with Valgrind[^valgrind].
 
 [^erlang-match-specification]: [https://www.erlang.org/doc/apps/erts/match_spec.html](https://www.erlang.org/doc/apps/erts/match_spec.html)
+[^datahike]: [https://github.com/replikativ/datahike](https://github.com/replikativ/datahike)
 [^rust]: [https://www.rust-lang.org/](https://www.rust-lang.org/)
 [^rustler]: [https://docs.rs/crate/rustler](https://docs.rs/crate/rustler)
 [^cozo-core]: [https://github.com/cozodb/cozo/tree/main/cozo-core](https://github.com/cozodb/cozo/tree/main/cozo-core)
@@ -690,3 +692,11 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 ```
+
+## Notes
+
+ - https://github.com/fogfish/datalog
+ - https://github.com/travitch/datalog
+ - https://github.com/racket/datalog
+ - https://github.com/souffle-lang/souffle
+ - https://github.com/ekzhang/crepe
