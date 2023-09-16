@@ -211,6 +211,26 @@ ERL_NIF_TERM atom_error(ErlNifEnv *env) {
  - [ ] describe `cozo` module
  - [ ] describe `cozo_db` module
 
+```erlang
+{ok, DbId} = cozo_nif:new().
+ok = cozo_nif:close(DbId).
+```
+
+```erlang
+{ok, DbId2} = cozo_nif:new("mem\n").
+ok = cozo_nif:close(DbId2).
+```
+
+```erlang
+{ok, DbId3} = cozo_nif:new("mem\n", "my_path\n").
+ok = cozo_nif:close(DbId3).
+```
+
+```erlang
+{ok, DbId4} = cozo_nif_new("mem\n", "my_path\n", "{}\n").
+ok = cozo_nif:close(DbId4).
+```
+
 ## Using CozoDB with Erlang
 
  - [ ] usage example with `cozo` module
@@ -242,7 +262,28 @@ Types and data-structures are defined in
 ```
 
 ```erlang
+0 = cozo:get_id(Db).
+```
+
+```erlang
 ok = cozo:close(Db).
+```
+
+`cozo_db` was created to isolated a database behind an Erlang process
+and linearize the queries and answers. The idea is to offer an easy
+way to synchronize and distribute queries in a cluster
+environment. All interfaces are similar than the ones defined in
+`cozo` module.
+
+```erlang
+{ok, Db} = cozo_db:new().
+ok = cozo_db:close(Db).
+
+{ok, DbMonitored} = cozo_db:start_monitor().
+ok = cozo_db:stop(DbMonitored).
+
+{ok, DbLinked} = cozo_db:start_link().
+ok = cozo_db:stop(DbLinked).
 ```
 
 CozoDB team created a pretty nice tutorial, with many use case. This
