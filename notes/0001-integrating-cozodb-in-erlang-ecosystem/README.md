@@ -216,10 +216,44 @@ ERL_NIF_TERM atom_error(ErlNifEnv *env) {
  - [ ] usage example with `cozo` module
  - [ ] usage example with `cozo_db` module
 
-## Future Improvements
+Types and data-structures are defined in 
 
- - [ ] cozodb interface with rustler
- - [ ] erlang terms to cozodb bytecode
+```erlang
+-type db_id()         :: 0 | pos_integer().
+-type db_engine()     :: mem | sqlite | rocksdb.
+-type db_path()       :: string().
+-type db_options()    :: map().
+-type db_parent()     :: pid().
+-type db_query()      :: string() | binary() | [string(), ...].
+```
+
+```erlang
+-record(cozo, { id = undefined        :: undefined | db_id()
+              , db_engine = mem       :: db_engine()
+              , db_path = ""          :: db_path()
+              , db_options = #{}      :: db_options()
+              , db_parent = undefined :: undefined | db_parent()
+              }).
+-type cozo() :: #cozo{ db_parent :: undefined | db_parent() }.
+```
+
+```erlang
+{ok, Db} = cozo:new().
+```
+
+```erlang
+ok = cozo:close(Db).
+```
+
+CozoDB team created a pretty nice tutorial, with many use case. This
+was quite useful to test the implementation and have an idea if
+everything was working correctly. This tutorial used with `cozo` and
+`cozo_db` modules were created using
+`common_test`[^erlang-common_test].
+
+[^erlang-common_test]: [https://www.erlang.org/doc/man/common_test.html#](https://www.erlang.org/doc/man/common_test.html)
+
+## Future Improvements
 
 Using Cozoscript to execute queries on CozoDB is enough if you want to
 create a simple interface to users wanting their own isolated
