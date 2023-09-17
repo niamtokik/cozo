@@ -951,21 +951,26 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-## Notes
+## ANNEXE D - Alternative Datalog Implementation
 
- - https://github.com/HarvardPL/AbcDatalog
- - https://github.com/fogfish/datalog
- - https://github.com/travitch/datalog
- - https://github.com/racket/datalog
- - https://github.com/souffle-lang/souffle
- - https://github.com/ekzhang/crepe
- - https://github.com/c-cube/datalog
- - https://github.com/google/mangle
- - https://github.com/dave-nachman/datalog
- - https://github.com/catwell/datalog.lua
- - https://github.com/tonsky/datascript
- - https://github.com/EvgSkv/logica
- - https://github.com/juji-io/datalevin
- - https://github.com/rust-lang/datafrog
+| name | language | 
+| :-   | -        |
+| [HarvardPLAbcDatalog](https://github.com/HarvardPL/AbcDatalog)  | Java    |
+| [fogfish/datalog](https://github.com/fogfish/datalog)           | Erlang  |
+| [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
+| [racket/datalog](https://github.com/racket/datalog)             | Racket  |
+| [souffle-lang/souffle](https://github.com/souffle-lang/souffle) | C++     |
+| [ekzhang/crepe](https://github.com/ekzhang/crepe)               | Rust    |
+| [c-cube/datalog](https://github.com/c-cube/datalog)             | Ocaml   |
+| [google/mangle](https://github.com/google/mangle)               | Go      |
+| [dave-nachman/datalog](https://github.com/dave-nachman/datalog) | Python  |
+| [catwell/datalog.lua](https://github.com/catwell/datalog.lua)   | Lua     |
+| [tonsky/datascript](https://github.com/tonsky/datascript)       | Clojure |
+| [EvgSkv/logica](https://github.com/EvgSkv/logica)               | Python  |
+| [juji-io/datalevin](https://github.com/juji-io/datalevin)       | Clojure |
+| [rust-lang/datafrog](https://github.com/rust-lang/datafrog)     | Rust    |
+| [replikativ/datahike](https://github.com/replikativ/datahike)   | Clojure |
+
+
  - https://amnesia.sourceforge.net/user_manual/manual.html
  - https://www.erlang.org/doc/man/qlc.html#
