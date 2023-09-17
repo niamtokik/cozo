@@ -20,10 +20,6 @@ abstract: |
 
 ## Introduction
 
- - [ ] introducing Datalog
- - [ ] introducing Cozodb
- - [ ] introducing NIF
-
 > Datalog is a declarative logic programming language. While it is
 > syntactically a subset of Prolog, Datalog generally uses a bottom-up
 > rather than top-down evaluation model. This difference yields
@@ -95,7 +91,50 @@ an easy task.
 findall(user(Name, Age, Password), (user(Name, Age, Password)), Xs).
 % Xs = [user("John Smith", 42, "Strong Password")
 %      ,user("Bill Kill", 57, "Beatrix")
-%      , user("Luke Skywalker", 24, "IHateBranda")].
+%      ,user("Luke Skywalker", 24, "IHateBranda")].
+```
+
+How to deal with information coming from another *table* and join
+them? Let create a new collection of elements, outside of the scope of
+the user predicate.
+
+```prolog
+assert(character("John Smith", male, bad)).
+assert(character("Bill Kill", male, bad)).
+assert(character("Luke Skywalker", male, good)).
+```
+
+We can easily merge both table together using `findall/3`.
+
+```prolog
+findall( {Name, Age, Sex, Type}
+       , (user(Name, Age, _Password), character(Name, Sex, Type))
+       , Xs).
+% Xs = [{"John Smith", 42, male, bad}
+%      ,{"Bill Kill", 57, male, bad}
+%      ,{"Luke Skywalker", 24, male, good}].
+```
+
+Great but what about a more complex relationship?
+
+```prolog
+assert(tag("John Smith", "Matrix")).
+assert(tag("John Smith", "Glasses")).
+assert(tag("John Smith", "Machine")).
+assert(tag("Bill Kill", "Katana")).
+assert(tag("Bill Kill", "Five Fingers Death Punch")).
+assert(tag("Luke Skywalker", "Jedi")).
+assert(tag("Luke Skywalker", "Light Saber")).
+```
+
+Based on the previous call, we can list 
+
+```prolog
+findall({Name, Tag}, (user(Name, _,_), tag(Name, Tag)), Xs).
+% Xs = [{"John Smith", "Matrix"}, {"John Smith", "Glasses"}
+%      ,{"John Smith", "Machine"}, {"Bill Kill", "Katana"}
+%      ,{"Bill Kill", "Five Fingers Death Punch"}
+%      ,{"Luke Skywalker", "Jedi"}, {"Luke Skywalker", "Light Saber"}].
 ```
 
 To remove one or more entry, `retract/1`[^prolog-retract/1] can be
@@ -121,6 +160,10 @@ transaction[^prolog-transaction] can be used instead.
 [^prolog-retract/1]: [https://www.swi-prolog.org/pldoc/doc_for?object=retract/1](https://www.swi-prolog.org/pldoc/doc_for?object=retract/1)
 [^prolog-abolish/2]: [https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)
 [^prolog-transaction]: [https://www.swi-prolog.org/pldoc/man?section=transactions](https://www.swi-prolog.org/pldoc/man?section=transactions)
+
+### From Prolog to Datalog
+
+
 
 ## A Quick Overview of CozoDB
 
