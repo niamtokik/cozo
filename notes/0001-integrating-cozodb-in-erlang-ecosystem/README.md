@@ -149,15 +149,15 @@ user_tags("Jedi", "Light Saber").
 
 % or with aggregate_all
 assert(
-  user_tags(Name, Tags) :- 
+  user_tags(Name, Tags) :-
     aggregate_all(set(Tag)
                  ,(user(Name,_,_), tag(Name, Tag))
-                 ,Tags) 
+                 ,Tags)
 ).
 
 % tags per users
 assert(
-  users_tags(Result) :- 
+  users_tags(Result) :-
     findall( {Name, Tags}
            , aggregate( set(Tag)
                       , (user(Name,_,_), tag(Name, Tag))
@@ -206,6 +206,106 @@ transaction[^prolog-transaction] can be used instead.
 > often used as a query language for deductive databases. Datalog has
 > been applied to problems in data integration, networking, program
 > analysis, and more.[^datalog-wikipedia]
+
+```cozoscript
+:create user {
+  name: String,
+  =>
+  age: Int,
+  password: String
+}
+
+:create character {
+  name: String,
+  =>
+  sex: String,
+  alignment: String
+}
+
+:create tag {
+  name: String,
+  user: String
+}
+```
+
+```cozoscript
+{
+  :create user {
+    name: String,
+    =>
+    age: Int,
+    password: String
+  }
+}
+
+{
+  :create character {
+    name: String,
+    =>
+    sex: String,
+    alignment: String
+  }
+}
+
+{
+  :create tag {
+    name: String,
+    tag: String
+  }
+}
+
+```
+
+```cozoscript
+{
+  ?[name, age, password] <- [
+    ['John Smith', 42, 'StrongPassword'],
+    ['Bill Kill', 57, 'Beatrix'],
+    ['Luke Skywalker', 24, 'IHateBrenda']
+  ]
+  :put user { name => age, password }
+}
+
+{
+  ?[name, sex, alignment] <- [
+    ['John Smith', 'male', 'bad'],
+    ['Bill Kill', 'make', 'bad'],
+    ['Luke Skywalker', 'male', 'good']
+  ]
+  :put character { name => sex, alignment }
+}
+
+{
+  ?[name, tag] <- [
+    ['John Smith', 'Matrix'],
+    ['John Smith', 'Glasses'],
+    ['John Smith', 'Machine'],
+    ['Bill Kill', 'Katana'],
+    ['Bill Kill', 'Five Fingers Death Punch'],
+    ['Luke Skywalker', 'Jedi'],
+    ['Luke Skywalker', 'Light Saber']
+  ]
+  :put tag { name, tag }
+}
+```
+
+```cozoscript
+?[name, age, password] := *user[name, age, password]
+```
+
+```cozoscript
+?[name, sex, alignment] := *character[name, sex, alignment]
+```
+
+```cozoscript
+?[name, tag] := *tag[name, tag]
+```
+
+```cozoscript
+?[name, tag, age] := *tag[name, tag], 
+                     *user[name, age, password], 
+                     name == 'Bill Kill'
+```
 
 [^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
 
@@ -391,7 +491,7 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 [^libcozo-opendb]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23)
 
-### `close_db` function 
+### `close_db` function
 
 `close_db()` function is an interface to
 `cozo_close_db()`[^libcozo-close].
@@ -477,7 +577,7 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
 ```c
   // run the query and store the result in ret variable
-  char *cozo_result = cozo_run_query(db_id, script_raw, params_raw, 
+  char *cozo_result = cozo_run_query(db_id, script_raw, params_raw,
                                      immutable ? true : false);
 ```
 
