@@ -20,13 +20,13 @@ abstract: |
 
 ## Introduction
 
-> Datalog is a declarative logic programming language. While it is
-> syntactically a subset of Prolog, Datalog generally uses a bottom-up
-> rather than top-down evaluation model. This difference yields
-> significantly different behavior and properties from Prolog. It is
-> often used as a query language for deductive databases. Datalog has
-> been applied to problems in data integration, networking, program
-> analysis, and more.[^datalog-wikipedia]
+> Prolog is a logic programming language associated with artificial
+> intelligence and computational linguistics. Prolog has its roots in
+> first-order logic, a formal logic, and unlike many other programming
+> languages, Prolog is intended primarily as a declarative programming
+> language: the program logic is expressed in terms of relations,
+> represented as facts and rules. A computation is initiated by
+> running a query over these relations.[^prolog-wikipedia]
 
 Datalog is greatly inspired from Prolog, and because many Datalog
 implementation are not free and open-source, I will try to explain the
@@ -127,7 +127,8 @@ assert(tag("Luke Skywalker", "Jedi")).
 assert(tag("Luke Skywalker", "Light Saber")).
 ```
 
-Based on the previous call, we can list 
+Based on the previous call, we can list user names and their tags, but
+it will give you lot of repetition.
 
 ```prolog
 findall({Name, Tag}, (user(Name, _,_), tag(Name, Tag)), Xs).
@@ -135,6 +136,40 @@ findall({Name, Tag}, (user(Name, _,_), tag(Name, Tag)), Xs).
 %      ,{"John Smith", "Machine"}, {"Bill Kill", "Katana"}
 %      ,{"Bill Kill", "Five Fingers Death Punch"}
 %      ,{"Luke Skywalker", "Jedi"}, {"Luke Skywalker", "Light Saber"}].
+```
+
+What we want is a join.
+
+```prolog
+assert(
+  user_tags(Name, Tags) :-
+    findall(Tag, (user(Name, _,_), tag(Name, Tag)), Tags)
+).
+user_tags("Jedi", "Light Saber").
+
+% or with aggregate_all
+assert(
+  user_tags(Name, Tags) :- 
+    aggregate_all(set(Tag)
+                 ,(user(Name,_,_), tag(Name, Tag))
+                 ,Tags) 
+).
+
+% tags per users
+assert(
+  users_tags(Result) :- 
+    findall( {Name, Tags}
+           , aggregate( set(Tag)
+                      , (user(Name,_,_), tag(Name, Tag))
+                      , Tags)
+           , Result)
+).
+
+users_tags(Xs).
+%  Xs = [ {"Bill Kill", ["Five Fingers Death Punch", "Katana"]}
+%       , {"John Smith", ["Glasses", "Machine", "Matrix"]}
+%       , {"Luke Skywalker", ["Jedi", "Light Saber"]}
+%       ].
 ```
 
 To remove one or more entry, `retract/1`[^prolog-retract/1] can be
@@ -154,7 +189,8 @@ abolish(user, 3).
 These previous action on the knowledge base are not safe but
 transaction[^prolog-transaction] can be used instead.
 
-[^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
+
+[^prolog-wikipedia]: [https://en.wikipedia.org/wiki/Prolog](https://en.wikipedia.org/wiki/Prolog)
 [^prolog-assert/1]: [https://www.swi-prolog.org/pldoc/doc_for?object=assert/1](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)
 [^prolog-findall/3]: [https://www.swi-prolog.org/pldoc/doc_for?object=findall/3](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)
 [^prolog-retract/1]: [https://www.swi-prolog.org/pldoc/doc_for?object=retract/1](https://www.swi-prolog.org/pldoc/doc_for?object=retract/1)
@@ -163,7 +199,15 @@ transaction[^prolog-transaction] can be used instead.
 
 ### From Prolog to Datalog
 
+> Datalog is a declarative logic programming language. While it is
+> syntactically a subset of Prolog, Datalog generally uses a bottom-up
+> rather than top-down evaluation model. This difference yields
+> significantly different behavior and properties from Prolog. It is
+> often used as a query language for deductive databases. Datalog has
+> been applied to problems in data integration, networking, program
+> analysis, and more.[^datalog-wikipedia]
 
+[^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
 
 ## A Quick Overview of CozoDB
 
@@ -738,8 +782,19 @@ int main(int argc, char *argv[]) {
 
 ## Notes
 
+ - https://github.com/HarvardPL/AbcDatalog
  - https://github.com/fogfish/datalog
  - https://github.com/travitch/datalog
  - https://github.com/racket/datalog
  - https://github.com/souffle-lang/souffle
  - https://github.com/ekzhang/crepe
+ - https://github.com/c-cube/datalog
+ - https://github.com/google/mangle
+ - https://github.com/dave-nachman/datalog
+ - https://github.com/catwell/datalog.lua
+ - https://github.com/tonsky/datascript
+ - https://github.com/EvgSkv/logica
+ - https://github.com/juji-io/datalevin
+ - https://github.com/rust-lang/datafrog
+ - https://amnesia.sourceforge.net/user_manual/manual.html
+ - https://www.erlang.org/doc/man/qlc.html#
