@@ -207,6 +207,11 @@ transaction[^prolog-transaction] can be used instead.
 > been applied to problems in data integration, networking, program
 > analysis, and more.[^datalog-wikipedia]
 
+Let create something similar than the example created with prolog. To
+create a relation in cozoscript the `:create` function is used,
+followed by the name of the relation and its spec. The fields before
+the arrow are the primary key, in this case, `name`.
+
 ```cozoscript
 :create user {
   name: String,
@@ -214,19 +219,29 @@ transaction[^prolog-transaction] can be used instead.
   age: Int,
   password: String
 }
+```
 
+`character` relation.
+
+```cozoscript
 :create character {
   name: String,
   =>
   sex: String,
   alignment: String
 }
+```
 
+`tag` relation.
+
+```cozoscript
 :create tag {
   name: String,
   user: String
 }
 ```
+
+Same can be execute once using multi-transaction syntax.
 
 ```cozoscript
 {
@@ -256,6 +271,32 @@ transaction[^prolog-transaction] can be used instead.
 
 ```
 
+These relations can be listing using `::relations` system operator.
+
+```cozoscript
+::relations
+```
+
+| `name`    | `arity` | `access_levpel` | `n_keys` | `n_non_keys` | `n_put_triggers` | `n_rm_triggers` | `n_replace_triggers` | `description` |
+| :-        | - | -     | - | - | - | - | - | - |
+| character | 3 | normal | 1 | 2 | 0 | 0 | 0 |
+| tag       | 2 | normal | 2 | 0 | 0 | 0 | 0 |
+| user      | 3 | normal | 1 | 2 | 0 | 0 | 0 |
+
+Columns can be listing using `::columns` system operator.
+
+```cozoscript
+::columns user
+```
+
+| `column` | `is_key` | `index` | `type` | `has_default` |
+| :-       | -        | -       | -      | -             |
+| name     | true     | 0       | String | false         |
+| age      | false    | 1       | Int    | false         |
+| password | false    | 2       | String | false         |
+
+Data injection.
+
 ```cozoscript
 {
   ?[name, age, password] <- [
@@ -269,7 +310,7 @@ transaction[^prolog-transaction] can be used instead.
 {
   ?[name, sex, alignment] <- [
     ['John Smith', 'male', 'bad'],
-    ['Bill Kill', 'make', 'bad'],
+    ['Bill Kill', 'male', 'bad'],
     ['Luke Skywalker', 'male', 'good']
   ]
   :put character { name => sex, alignment }
@@ -289,22 +330,55 @@ transaction[^prolog-transaction] can be used instead.
 }
 ```
 
+List all data from `user` relation
+
 ```cozoscript
 ?[name, age, password] := *user[name, age, password]
 ```
 
 ```cozoscript
+::explain { ?[name] := *user[name, age, password] }
+```
+
+| `stratum` | `rule_idx` | `rule` | `atom_idx` | `op` | `ref` | `joins_on` | `filters/expr` | `out_relation` |
+| - | - | - | - | ---         | --    | --   | --   | ---                           |
+| 0 | 0 | ? | 1 | load_stored | :user | null | []   | `["name", "age", "password"]` |
+| 0 | 0 | ? | 0 | out         | null  | null | null | `["name"]` |
+
+```cozoscript
 ?[name, sex, alignment] := *character[name, sex, alignment]
 ```
+
+| name           | sex  | alignment |
+| :-             | -    | -         |
+| Bill Kill      | male | bad       |
+| John Smith     | male | bad       |
+| Luke Skywalker | make | good      |
 
 ```cozoscript
 ?[name, tag] := *tag[name, tag]
 ```
 
+| name | tag |
+| -    | -   |
+|      |     |
+
 ```cozoscript
-?[name, tag, age] := *tag[name, tag], 
-                     *user[name, age, password], 
+?[name, tag, age] := *tag[name, tag],
+                     *user[name, age, password],
                      name == 'Bill Kill'
+```
+
+| name | tag |
+| -    | -   |
+| Bill Kill | Five Fingers Death Punch | 57 |
+| Bill Kill | Katana                   | 57 |
+
+```cozoscript
+::explain { ?[name, tag, age] := *tag[name, tag],
+                                 *user[name, age, password],
+                                 name == 'Bill Kill'
+}
 ```
 
 [^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
