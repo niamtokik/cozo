@@ -504,29 +504,28 @@ The first interface implemented was created for
 static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 ```
 
+The first part of the code extract the length of each strings from
+Erlang.
+
 ```c
-  // get the engine string length
   unsigned int engine_length;
   if (!enif_get_string_length(env, argv[0], &engine_length, ERL_NIF_UTF8)) {
     return enif_make_badarg(env);
   }
-```
 
-```c
-  // get the path string length
   unsigned int path_length;
   if (!enif_get_string_length(env, argv[1], &path_length, ERL_NIF_UTF8)) {
     return enif_make_badarg(env);
   }
-```
-
-```c
-  // get option length
+  
   unsigned int options_length;
   if (!(enif_get_string_length(env, argv[2], &options_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
+
+Extract the engine string, only "mem", "sqlite" and "rocksdb" are
+supported.
 
 ```c
   // extract the engine string
@@ -536,30 +535,34 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
   }
 ```
 
+Extract the path string, a valid and existing path from the
+filesystem.
+
 ```c
-  // extract the path string
   char *path = enif_alloc(path_length);
   if (!(enif_get_string(env, argv[1], path, path_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
 
+Extract the engine options, a valid JSON object.
+
 ```c
-  // extract the option string
   char *options = enif_alloc(options_length);
   if (!(enif_get_string(env, argv[2], options, options_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
 
+Create the database and return its idea in case of success, else
+returns an error with the reason "open_error".
+
 ```c
-  // create a new db with engine, path without options.
   int db_id;
   if (!cozo_open_db(engine, path, options, &db_id)) {
     return enif_make_tuple2(env, atom_ok(env), enif_make_int(env, db_id));
   }
-
-  return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "open_error"));
+  return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "open_error"));  
 }
 ```
 
@@ -626,7 +629,6 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 ```
 
 ```c
-  // immutability
   int immutable;
   if (!enif_get_int(env, argv[3], &immutable)) {
     return enif_make_badarg(env);
@@ -634,7 +636,6 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 ```
 
 ```c
-  // cozo query
   char *script_raw = enif_alloc(script_raw_length);
   if (!(enif_get_string(env, argv[1], script_raw, script_raw_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
@@ -642,7 +643,6 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 ```
 
 ```c
-  // extra parameters
   char *params_raw = enif_alloc(params_raw_length);
   if (!(enif_get_string(env, argv[2], params_raw, params_raw_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
@@ -650,18 +650,15 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 ```
 
 ```c
-  // run the query and store the result in ret variable
   char *cozo_result = cozo_run_query(db_id, script_raw, params_raw,
                                      immutable ? true : false);
 ```
 
 ```c
-  // convert ret into a string
   ERL_NIF_TERM result_string = enif_make_string(env, cozo_result, ERL_NIF_UTF8);
 ```
 
 ```c
-  // free the memory mainte
   cozo_free_str(cozo_result);
 ```
 
