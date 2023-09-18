@@ -16,6 +16,11 @@ abstract: |
   releases. Erlang community is also providing some alternative, in
   particular with RocksDB. In this paper, an integration of CozoDB
   v0.7.2 is presented using its C interface called `libcozo_c`.
+  
+  In the vast world of database, SQL is probably the most standardized,
+  advanced and used language around the world to deal with relation
+  between data. This is not the only one though and few alternative like
+  Prolog or Datalog exist.
 ---
 
 ## Introduction
@@ -28,18 +33,32 @@ abstract: |
 > represented as facts and rules. A computation is initiated by
 > running a query over these relations.[^prolog-wikipedia]
 
+> Datalog is a declarative logic programming language. While it is
+> syntactically a subset of Prolog, Datalog generally uses a bottom-up
+> rather than top-down evaluation model. This difference yields
+> significantly different behavior and properties from Prolog. It is
+> often used as a query language for deductive databases. Datalog has
+> been applied to problems in data integration, networking, program
+> analysis, and more.[^datalog-wikipedia]
+
 Datalog is greatly inspired from Prolog, and because many Datalog
 implementation are not free and open-source, I will try to explain the
 concept behind Datalog using Prolog. When programming with Logic
 Programming languages like Prolog, a knowledge base is accessible
 during the execution of the program. You can see it as a database
 containing terms for the moment. If you can add terms, you can also
-design them. They you want to store users in your knowledge based. An
-user is defined by its name, its age and its password. An entry is
-called a fact, and we can add new one using
-`assert/1`[^prolog-assert/1] followed by the definition of a new
-fact. Let adds three new user, *John Smith*, *Bill Kill* and *Luke
-Skywalker*.
+design them. In the following examples, SWI Prolog [^swi-prolog] REPL
+will be used by invocaking the command `swipl`.
+
+```sh
+swipl
+```
+
+Say you want to store users into your knowledge based. An user is
+defined by its name, its age and its password. An entry is called a
+fact, and we can add new one using `assert/1`[^prolog-assert/1]
+followed by the definition of a new fact. Let adds three new user,
+*John Smith*, *Bill Kill* and *Luke Skywalker*.
 
 ```prolog
 assert(user("John Smith", 42, "StrongPassword")).
@@ -88,7 +107,9 @@ Finally, if you want to extract all facts from the database, it's also
 an easy task.
 
 ```prolog
-findall(user(Name, Age, Password), (user(Name, Age, Password)), Xs).
+findall( user(Name, Age, Password)
+       , (user(Name, Age, Password))
+       , Xs).
 % Xs = [user("John Smith", 42, "Strong Password")
 %      ,user("Bill Kill", 57, "Beatrix")
 %      ,user("Luke Skywalker", 24, "IHateBranda")].
@@ -108,7 +129,8 @@ We can easily merge both table together using `findall/3`.
 
 ```prolog
 findall( {Name, Age, Sex, Type}
-       , (user(Name, Age, _Password), character(Name, Sex, Type))
+       , ( user(Name, Age, _Password)
+         , character(Name, Sex, Type))
        , Xs).
 % Xs = [{"John Smith", 42, male, bad}
 %      ,{"Bill Kill", 57, male, bad}
@@ -131,7 +153,10 @@ Based on the previous call, we can list user names and their tags, but
 it will give you lot of repetition.
 
 ```prolog
-findall({Name, Tag}, (user(Name, _,_), tag(Name, Tag)), Xs).
+findall( {Name, Tag}
+       , (user(Name, _,_)
+         ,tag(Name, Tag))
+       , Xs).
 % Xs = [{"John Smith", "Matrix"}, {"John Smith", "Glasses"}
 %      ,{"John Smith", "Machine"}, {"Bill Kill", "Katana"}
 %      ,{"Bill Kill", "Five Fingers Death Punch"}
@@ -146,7 +171,9 @@ assert(
     findall(Tag, (user(Name, _,_), tag(Name, Tag)), Tags)
 ).
 user_tags("Jedi", "Light Saber").
+```
 
+```prolog
 % or with aggregate_all
 assert(
   user_tags(Name, Tags) :-
@@ -154,7 +181,9 @@ assert(
                  ,(user(Name,_,_), tag(Name, Tag))
                  ,Tags)
 ).
+```
 
+```prolog
 % tags per users
 assert(
   users_tags(Result) :-
@@ -189,28 +218,40 @@ abolish(user, 3).
 These previous action on the knowledge base are not safe but
 transaction[^prolog-transaction] can be used instead.
 
-
+[^swi-prolog]: [https://www.swi-prolog.org/](https://www.swi-prolog.org/)
 [^prolog-wikipedia]: [https://en.wikipedia.org/wiki/Prolog](https://en.wikipedia.org/wiki/Prolog)
 [^prolog-assert/1]: [https://www.swi-prolog.org/pldoc/doc_for?object=assert/1](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)
 [^prolog-findall/3]: [https://www.swi-prolog.org/pldoc/doc_for?object=findall/3](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)
 [^prolog-retract/1]: [https://www.swi-prolog.org/pldoc/doc_for?object=retract/1](https://www.swi-prolog.org/pldoc/doc_for?object=retract/1)
 [^prolog-abolish/2]: [https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)
 [^prolog-transaction]: [https://www.swi-prolog.org/pldoc/man?section=transactions](https://www.swi-prolog.org/pldoc/man?section=transactions)
+[^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
 
-### From Prolog to Datalog
+## A Quick Overview of CozoDB
 
-> Datalog is a declarative logic programming language. While it is
-> syntactically a subset of Prolog, Datalog generally uses a bottom-up
-> rather than top-down evaluation model. This difference yields
-> significantly different behavior and properties from Prolog. It is
-> often used as a query language for deductive databases. Datalog has
-> been applied to problems in data integration, networking, program
-> analysis, and more.[^datalog-wikipedia]
+> A FOSS embeddable, transactional, relational-graph-vector database,
+> across platforms and languages, with time travelling capability,
+> perfect as the long-term memory for LLMs and
+> AI.[^cozo-official-website]
 
-Let create something similar than the example created with prolog. To
-create a relation in cozoscript the `:create` function is used,
-followed by the name of the relation and its spec. The fields before
-the arrow are the primary key, in this case, `name`.
+CozoDB is a modern Datalog system supporting in-memory, sqlite and
+rocksdb storage. Written in Rust, it offers also a command-line
+interface called `cozo-bin`, a C library called `cozo-lib-c` or
+`libcozo_c`, a Java library called `cozo-lib-java`, a NodeJS library
+called `cozo-lib-nodejs`, and two others for python called
+`cozo-lib-python` and for swift called `cozo-lib-swift`. CozoDB can
+also be compiled as web assembly library with the project
+`cozo-lib-wasm`.
+
+CozoDB offers a scripting language called Cozoscript to interact with
+the database. The syntax is inspired from Prolog and Datalog, but with
+many differences.
+
+Let create something similar than the example created with prolog
+using cozodb. To create a relation in cozoscript the `:create`
+function is used, followed by the name of the relation and its
+spec. The fields before the arrow are the primary key, in this case,
+`name`.
 
 ```cozoscript
 :create user {
@@ -380,18 +421,6 @@ List all data from `user` relation
                                  name == 'Bill Kill'
 }
 ```
-
-[^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
-
-## A Quick Overview of CozoDB
-
- - [ ] using CozoDB REPL
- - [ ] describe and use Cozoscript syntax
-
-> A FOSS embeddable, transactional, relational-graph-vector database,
-> across platforms and languages, with time travelling capability,
-> perfect as the long-term memory for LLMs and
-> AI.[^cozo-official-website]
 
 [^cozo-official-website]: [https://www.cozodb.org/](https://www.cozodb.org/)
 
