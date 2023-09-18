@@ -701,8 +701,6 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 ## Low Level Interface with `cozo_nif` Module
 
  - [ ] describe `cozo_nif` module
- - [ ] describe `cozo` module
- - [ ] describe `cozo_db` module
 
 ```erlang
 {ok, DbId} = cozo_nif:new().
@@ -753,6 +751,52 @@ Types and data-structures are defined in
 
 ```erlang
 0 = cozo:get_id(Db).
+```
+
+```erlang
+cozo:get_options(Db).
+```
+
+```erlang
+cozo:get_engine(Db).
+```
+
+```erlang
+cozo:run("").
+```
+
+```erlang
+cozo:import_relations(Db, "").
+cozo:export_relations(Db, "").
+```
+
+```
+cozo:backup(Db, "").
+cozo:restore(Db, "").
+cozo:import_backup(Db, "").
+```
+
+```erlang
+cozo:create_relation(Db, "", "").
+cozo:replace_relation(Db, "", "").
+cozo:list_relations(Db).
+cozo:delete_relation(Db, "").
+cozo:delete_relations(Db, ["", ""]).
+```
+
+```erlang
+cozo:create_index(Db, "", "").
+cozo:list_indices(Db, "").
+cozo:delete_index(Db, "").
+```
+
+```erlang
+cozo:set_triggers(Db, "").
+cozo:get_triggers(Db, "").
+```
+
+```erlang
+cozo:list_columns(Db, "").
 ```
 
 ```erlang
@@ -982,7 +1026,7 @@ int main(int argc, char *argv[]) {
 ## ANNEXE D - Alternative Datalog Implementation
 
 | name | language | 
-| :-   | -        |
+| :-   |       -: |
 | [HarvardPLAbcDatalog](https://github.com/HarvardPL/AbcDatalog)  | Java    |
 | [fogfish/datalog](https://github.com/fogfish/datalog)           | Erlang  |
 | [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
