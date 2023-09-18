@@ -207,7 +207,8 @@ assert(
   users_tags(Result) :-
     findall( {Name, Tags}
            , aggregate( set(Tag)
-                      , (user(Name,_,_), tag(Name, Tag))
+                      , ( user(Name,_,_)
+                        , tag(Name, Tag))
                       , Tags)
            , Result)
 ).
@@ -792,7 +793,7 @@ cozo:import_relations(Db, "").
 cozo:export_relations(Db, "").
 ```
 
-```
+```erlang
 cozo:backup(Db, "").
 cozo:restore(Db, "").
 cozo:import_backup(Db, "").
