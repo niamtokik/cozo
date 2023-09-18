@@ -47,8 +47,9 @@ concept behind Datalog using Prolog. When programming with Logic
 Programming languages like Prolog, a knowledge base is accessible
 during the execution of the program. You can see it as a database
 containing terms for the moment. If you can add terms, you can also
-design them. In the following examples, SWI Prolog [^swi-prolog] REPL
-will be used by invocaking the command `swipl`.
+design them. In the following examples, [SWI
+Prolog](https://www.swi-prolog.org/)[^swi-prolog] REPL will be used by
+invocaking the command `swipl`.
 
 ```sh
 swipl
@@ -56,7 +57,8 @@ swipl
 
 Say you want to store users into your knowledge based. An user is
 defined by its name, its age and its password. An entry is called a
-fact, and we can add new one using `assert/1`[^prolog-assert/1]
+fact, and we can add new one using
+[`assert/1`](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)[^prolog-assert/1]
 followed by the definition of a new fact. Let adds three new user,
 *John Smith*, *Bill Kill* and *Luke Skywalker*.
 
@@ -78,23 +80,26 @@ user("John Smith", _, Password).
 ```
 
 More than one facts have been added into the knowledge base, and using
-`findall/3`[^prolog-findall/3] predicate, we can easily extract all
-the user name from it.
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3]
+predicate, we can easily extract all the user name from it.
 
 ```prolog
 findall(Name, user(Name, _, _), Xs).
 % Xs = ["John Smith", "Bill Kill", "Luke Skywalker"].
 ```
 
-Filtering using guards can also be done.
+A guard can also be used to used to filter result and extract the
+wanted data.
 
 ```prolog
 findall(Name, (user(Name, Age, _), Age>40), Xs).
 % Xs = ["John Smith", "Bill Kill"].
 ```
 
-Creating more complex data-structures by composing data from facts is
-also possible.
+It's also possible to create more complex data-structures by composing
+data together from facts return by
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3).
+
 
 ```prolog
 findall({Name, Password}, (user(Name, Age, Password)), Xs).
@@ -103,7 +108,7 @@ findall({Name, Password}, (user(Name, Age, Password)), Xs).
 %     ,{"Luke Skywalker", "IHateBranda"}].
 ```
 
-Finally, if you want to extract all facts from the database, it's also
+Extract the whole database or all predicates from the database is also
 an easy task.
 
 ```prolog
@@ -115,9 +120,10 @@ findall( user(Name, Age, Password)
 %      ,user("Luke Skywalker", 24, "IHateBranda")].
 ```
 
-How to deal with information coming from another *table* and join
-them? Let create a new collection of elements, outside of the scope of
-the user predicate.
+A predicate can be extended, but it will probably have many side
+effects on the whole interfaces used by developers. In fact, it is
+also possible to extend a predicate by creating a new one containing
+an explicit reference to the old one. 
 
 ```prolog
 assert(character("John Smith", male, bad)).
@@ -125,7 +131,10 @@ assert(character("Bill Kill", male, bad)).
 assert(character("Luke Skywalker", male, good)).
 ```
 
-We can easily merge both table together using `findall/3`.
+We can easily merge both table together using `findall/3`. Indeed,
+this is equivalent to join in SQL, elements from user and character
+predicates are now combined on the same data-structure, using name as
+primary key.
 
 ```prolog
 findall( {Name, Age, Sex, Type}
@@ -137,7 +146,8 @@ findall( {Name, Age, Sex, Type}
 %      ,{"Luke Skywalker", 24, male, good}].
 ```
 
-Great but what about a more complex relationship?
+More complex relationship can also be created. A `tag` predicate can
+be created where one user can have many tags.
 
 ```prolog
 assert(tag("John Smith", "Matrix")).
@@ -149,8 +159,9 @@ assert(tag("Luke Skywalker", "Jedi")).
 assert(tag("Luke Skywalker", "Light Saber")).
 ```
 
-Based on the previous call, we can list user names and their tags, but
-it will give you lot of repetition.
+Based on the previous call, we can list user name and their tags, but
+it will give you lot of repetition. One user should have zero to many
+tags, the best data-structure to answer this issue is a list.
 
 ```prolog
 findall( {Name, Tag}
@@ -168,20 +179,27 @@ What we want is a join.
 ```prolog
 assert(
   user_tags(Name, Tags) :-
-    findall(Tag, (user(Name, _,_), tag(Name, Tag)), Tags)
+    findall( Tag
+           , ( user(Name, _,_)
+             , tag(Name, Tag))
+           , Tags)
 ).
-user_tags("Jedi", "Light Saber").
+% user_tags("Jedi", "Light Saber").
 ```
 
 ```prolog
-% or with aggregate_all
 assert(
   user_tags(Name, Tags) :-
-    aggregate_all(set(Tag)
-                 ,(user(Name,_,_), tag(Name, Tag))
-                 ,Tags)
+    aggregate_all( set(Tag)
+                 , ( user(Name,_,_)
+                   , tag(Name, Tag))
+                 , Tags)
 ).
 ```
+
+[`aggregate/3`](https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3)[^prolog-aggregate/3]
+predicate can be coupled with
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3].
 
 ```prolog
 % tags per users
@@ -201,15 +219,18 @@ users_tags(Xs).
 %       ].
 ```
 
-To remove one or more entry, `retract/1`[^prolog-retract/1] can be
-used.
+To remove one or more entry,
+[`retract/1`](https://www.swi-prolog.org/pldoc/doc_for?object=retract/1)[^prolog-retract/1]
+can be used.
 
 ```prolog
 retract(user("Bill Kill", X, _).
 % X = 42
 ```
 
-To purge all data, `abolish/1`[^prolog-abolish/2] can be used.
+To purge all data,
+[`abolish/1`](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)[^prolog-abolish/2]
+can be used.
 
 ```prolog
 abolish(user, 3).
@@ -226,6 +247,7 @@ transaction[^prolog-transaction] can be used instead.
 [^prolog-abolish/2]: [https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)
 [^prolog-transaction]: [https://www.swi-prolog.org/pldoc/man?section=transactions](https://www.swi-prolog.org/pldoc/man?section=transactions)
 [^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
+[^prolog-aggregate/3]: [https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3](https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3)
 
 ## A Quick Overview of CozoDB
 
@@ -1023,26 +1045,85 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-## ANNEXE D - Alternative Datalog Implementation
+## ANNEXE D - SQL Equivalence
+
+Tested with SQLite.
+
+```sql
+CREATE TABLE user ( 
+  name VARCHAR, 
+  age INTEGER, 
+  password VARCHAR 
+);
+CREATE TABLE character ( 
+  name VARCHAR, 
+  sex VARCHAR, 
+  alignment VARCHAR 
+);
+CREATE TABLE tag ( 
+  name VARCHAR, 
+  tag VARCHAR, 
+  comment VARCHAR 
+);
+
+INSERT INTO user (name, age, password) 
+     VALUES ('John Smith', 42, 'StrongPassword');
+INSERT INTO user (name, age, password) 
+     VALUES ('Bill Kill', 57, 'Beatrix');
+INSERT INTO user (name, age, password) 
+     VALUES ('Luke Skywalker', 42, 'IHateBrenda');
+
+INSERT INTO character (name, sex, alignment) 
+     VALUES ('John Smith', 'male', 'bad');
+INSERT INTO character (name, sex, alignment) 
+     VALUES ('Bill Kill', 'male', 'bad');
+INSERT INTO character (name, sex, alignment) 
+     VALUES ('Luke Skywalker', 'male', 'good');
+
+INSERT INTO tag ( name, tag ) 
+     VALUES ('John Smith', 'Matrix');
+INSERT INTO tag ( name, tag ) 
+     VALUES ('John Smith', 'Glasses');
+INSERT INTO tag ( name, tag ) 
+     VALUES ('Bill Kill', 'Katana');
+INSERT INTO tag ( name, tag ) 
+     VALUES ('Bill Kill', 'Five Fingers Death Punch');
+INSERT INTO tag ( name, tag ) 
+     VALUES ('Luke Skywalker', 'Jedi');
+INSERT INTO tag ( name, tag ) 
+     VALUES ('Luke Skywalker', 'Light Saber');
+
+SELECT * 
+  FROM user, character 
+ WHERE user.name=character.name;
+
+SELECT * 
+  FROM user 
+  JOIN character 
+    ON user.name=character.name;
+```
+
+## ANNEXE E - Alternative Datalog Implementation
 
 | name | language | 
 | :-   |       -: |
-| [HarvardPLAbcDatalog](https://github.com/HarvardPL/AbcDatalog)  | Java    |
-| [fogfish/datalog](https://github.com/fogfish/datalog)           | Erlang  |
-| [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
-| [racket/datalog](https://github.com/racket/datalog)             | Racket  |
-| [souffle-lang/souffle](https://github.com/souffle-lang/souffle) | C++     |
-| [ekzhang/crepe](https://github.com/ekzhang/crepe)               | Rust    |
-| [c-cube/datalog](https://github.com/c-cube/datalog)             | Ocaml   |
-| [google/mangle](https://github.com/google/mangle)               | Go      |
-| [dave-nachman/datalog](https://github.com/dave-nachman/datalog) | Python  |
-| [catwell/datalog.lua](https://github.com/catwell/datalog.lua)   | Lua     |
-| [tonsky/datascript](https://github.com/tonsky/datascript)       | Clojure |
-| [EvgSkv/logica](https://github.com/EvgSkv/logica)               | Python  |
+| [EvgSkv/logica](https://github.com/EvgSkv/logica)               |  Python |
+| [HarvardPLAbcDatalog](https://github.com/HarvardPL/AbcDatalog)  |    Java |
+| [c-cube/datalog](https://github.com/c-cube/datalog)             |   Ocaml |
+| [catwell/datalog.lua](https://github.com/catwell/datalog.lua)   |     Lua |
+| [dave-nachman/datalog](https://github.com/dave-nachman/datalog) |  Python |
+| [ekzhang/crepe](https://github.com/ekzhang/crepe)               |    Rust |
+| [fogfish/datalog](https://github.com/fogfish/datalog)           |  Erlang |
+| [google/mangle](https://github.com/google/mangle)               |      Go |
 | [juji-io/datalevin](https://github.com/juji-io/datalevin)       | Clojure |
-| [rust-lang/datafrog](https://github.com/rust-lang/datafrog)     | Rust    |
+| [racket/datalog](https://github.com/racket/datalog)             |  Racket |
 | [replikativ/datahike](https://github.com/replikativ/datahike)   | Clojure |
+| [rust-lang/datafrog](https://github.com/rust-lang/datafrog)     |    Rust |
+| [souffle-lang/souffle](https://github.com/souffle-lang/souffle) |     C++ |
+| [tonsky/datascript](https://github.com/tonsky/datascript)       | Clojure |
+| [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
 
+## Notes
 
  - https://amnesia.sourceforge.net/user_manual/manual.html
  - https://www.erlang.org/doc/man/qlc.html#
