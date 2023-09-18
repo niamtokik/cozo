@@ -698,7 +698,7 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
 [^libcozo-runquery]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L47](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L47)
 
-## Erlang Interface to NIF
+## Low Level Interface with `cozo_nif` Module
 
  - [ ] describe `cozo_nif` module
  - [ ] describe `cozo` module
@@ -724,10 +724,7 @@ ok = cozo_nif:close(DbId3).
 ok = cozo_nif:close(DbId4).
 ```
 
-## Using CozoDB with Erlang
-
- - [ ] usage example with `cozo` module
- - [ ] usage example with `cozo_db` module
+### Generic Interface with `cozo` Module
 
 Types and data-structures are defined in
 
@@ -762,7 +759,9 @@ Types and data-structures are defined in
 ok = cozo:close(Db).
 ```
 
-`cozo_db` was created to isolated a database behind an Erlang process
+### Isolated Interface with `cozo_db` Module
+
+`cozo_db` was created to isolate a database behind an Erlang process
 and linearize the queries and answers. The idea is to offer an easy
 way to synchronize and distribute queries in a cluster
 environment. All interfaces are similar than the ones defined in
