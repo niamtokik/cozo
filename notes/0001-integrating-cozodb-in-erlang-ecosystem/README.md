@@ -424,6 +424,9 @@ will extract the data from the right part following the `:=` operator.
 | `"John Smith"`     |  42 | `"StrongPassword"` |
 | `"Luke Skywalker"` |  24 |    `"IHateBrenda"` |
 
+This query can be analyzed and explained using `::explain` command. It
+will return each step of executions.
+
 ```cozoscript
 ::explain { ?[name] := *user[name, age, password] }
 ```
@@ -432,6 +435,8 @@ will extract the data from the right part following the `:=` operator.
 | - | - | - | - | ---         | --    | --   | --   | ---                           |
 | `0` | `0` | `?` | `1` | `load_stored` | `:user` | `null` | `[]`   | `["name", "age", "password"]` |
 | `0` | `0` | `?` | `0` | `out`         | `null`  | `null` | `null` | `["name"]` |
+
+Let prints out the content of `character` *relation*...
 
 ```cozoscript
 ?[name, sex, alignment] := *character[name, sex, alignment]
@@ -442,6 +447,8 @@ will extract the data from the right part following the `:=` operator.
 | `"Bill Kill"`      | `"male"` | `"bad"`   |
 | `"John Smith"`     | `"male"` | `"bad"`   |
 | `"Luke Skywalker"` | `"male"` | `"good"`  |
+
+... and the content of `tag` one.
 
 ```cozoscript
 ?[name, tag] := *tag[name, tag]
@@ -457,6 +464,10 @@ will extract the data from the right part following the `:=` operator.
 | `"Luke Skywalker"` |                     `"Jedi"` |
 | `"Luke Skywalker"` |              `"Light Saber"` |
 
+The most interesting part now is to join them together using a guard
+at the end of the query. The following code will join `tag` and `user`
+relation together by unifying `name` present in both *relations*. A
+filter is also added to only return the user called `Bill Kill`.
 
 ```cozoscript
 ?[name, tag, age] := *tag[name, tag],
@@ -464,10 +475,14 @@ will extract the data from the right part following the `:=` operator.
                      name == 'Bill Kill'
 ```
 
+The result shows how boths relations have been merged.
+
 | name | tag | age |
 |   -: | -: |  -: |
 | `"Bill Kill"` | `"Five Fingers Death Punch"` | `"57"` |
 | `"Bill Kill"` |                   `"Katana"` | `"57"` |
+
+This query can be explain by using, again, `::explain` command.
 
 ```cozoscript
 ::explain { ?[name, tag, age] := *tag[name, tag],
@@ -475,6 +490,9 @@ will extract the data from the right part following the `:=` operator.
                                  name == 'Bill Kill'
 }
 ```
+
+Table returned is more complex than the previous ones. On the third
+line, a relation is made using `name` field.
 
 | stratum | `rule_idx` | `rule` | `atom_idx` | `op`                   | `ref`     | `joins_on`       | `filters/expr`                | `out_relation` |
 |      -: |         -: |     -: |         -: |                  ----: |       --: |             ---: |                         ----: | ----: |
