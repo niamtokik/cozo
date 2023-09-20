@@ -533,15 +533,17 @@ fetch the right version currently supported.
 make deps
 ```
 
-`ei.h` C header is required.
+`ei.h`[^erlang-ei] and `erl_nif.h`[^erlang-erl_nif] C headers are both
+required.
 
 ```c
 #include <ei.h>
-```
-
-```c
 #include <erl_nif.h>
 ```
+
+`cozo_c.h`[^erlang-cozo_c.h] is present in `c_src` directory but can be
+automatically fetched and upgraded using `make deps` if this file is
+not present.
 
 ```c
 #include "cozo_c.h"
@@ -551,7 +553,7 @@ Because this implementation is using an external library, the
 definition of each exported functions from this one needs to be
 created prefixed with the keyword `extern` meaning "external
 references" outside of the scope of this program. It's basically a
-copy/paste from `cozo_c.h ` prototypes.
+copy/paste from `cozo_c.h` prototypes.
 
 ```c
 extern void cozo_free_str(char *s);
@@ -567,9 +569,14 @@ extern char *cozo_restore(int32_t db_id, const char *in_path);
 extern char *cozo_import_from_backup(int32_t db_id, const char *json_payload);
 ```
 
-`ERL_NIF_INIT` macro is needed to generate other internal functions
-and configure the NIF correctly. The first argument is the name of the
-module called `cozo_nif` here, and ...
+`ERL_NIF_INIT`[^erlang-ERL_NIF_INIT] macro is needed to generate other
+internal functions and configure the NIF correctly. The first argument
+is the name of the module called `cozo_nif`, following the name of the
+C function `nif_funcs` returning references to the interface to
+CozoDB. All other arguments are disabled, but represent the function
+used when loading the library, next argument is ignored, the fifth
+argument is a function called when an upgrade is made and the last one
+when this module is unloaded.
 
 ```c
 ERL_NIF_INIT(cozo_nif,nif_funcs,NULL,NULL,NULL,NULL)
@@ -579,8 +586,7 @@ The list of functions and their mapping on the Erlang side is defined
 in `ErlNifFunc`. 8 functions are exported.
 
 ```c
-static ErlNifFunc nif_funcs[] =
-  {
+static ErlNifFunc nif_funcs[] = {
    {"open_db_nif", 3, open_db},
    {"close_db_nif", 1, close_db},
    {"run_query_nif", 4, run_query},
@@ -589,26 +595,31 @@ static ErlNifFunc nif_funcs[] =
    {"backup_db_nif", 2, backup_db},
    {"restore_db_nif", 2, restore_db},
    {"import_backup_db_nif", 2, import_backup_db}
-  };
+};
 ```
 
-`atom_ok()` function creates an atom `ok`.
+`atom_ok()` and `atom_error()` functions have been created to help
+generating atoms using `enif_make_atom()`[^erlang-enif_make_atom],
+returning respectively the atom `ok` for the first one and the atom
+`error` for the last one.
 
 ```c
 ERL_NIF_TERM atom_ok(ErlNifEnv *env) {
   const char* atom = "ok";
   return enif_make_atom(env, atom);
 }
-```
 
-`atom_error()` function creates an atom `error`.
-
-```c
 ERL_NIF_TERM atom_error(ErlNifEnv *env) {
   const char* atom = "error";
   return enif_make_atom(env, atom);
 }
 ```
+
+[^erlang-ei]: [https://www.erlang.org/doc/man/ei.html](https://www.erlang.org/doc/man/ei.html)
+[^erlang-erl_nif]: [https://www.erlang.org/doc/man/erl_nif.html](https://www.erlang.org/doc/man/erl_nif.html)
+[^erlang-cozo_c.h]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h)
+[^erlang-ERL_NIF_INIT]: [https://www.erlang.org/doc/man/erl_nif.html#initialization](https://www.erlang.org/doc/man/erl_nif.html#initialization)
+[^erlang-enif_make_atom]: [https://www.erlang.org/doc/man/erl_nif#enif_make_atom](https://www.erlang.org/doc/man/erl_nif#enif_make_atom)
 
 ### `open_db` function
 
@@ -620,7 +631,9 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 ```
 
 The first part of the code extract the length of each strings from
-Erlang.
+Erlang with `enif_get_string_length()`[^erlang-enif_get_string_length]
+function. In case of failure, the function return a `badarg` atom with
+the help of function `enif_make_badarg()`[^erlang-enif_make_badarg].
 
 ```c
   unsigned int engine_length;
@@ -639,8 +652,11 @@ Erlang.
   }
 ```
 
-Extract the engine string, only "mem", "sqlite" and "rocksdb" are
-supported.
+No error so far in the code, then the *engine* string can be extracted
+with `enif_get_string()`[^erlang-enif_get_string] function. This must
+be a C string and it should be terminated by `\0` but a `\n` do the
+job. `mem`, `sqlite` and `rocksdb` are the only engine supported for
+the moment. In case of failure a `badarg` atom is returned.
 
 ```c
   // extract the engine string
@@ -650,27 +666,30 @@ supported.
   }
 ```
 
-Extract the path string, a valid and existing path from the
-filesystem.
+The *path* and *engine options* are extracted using the same
+process. *path* argument must be a valid path and *engine option* must
+be a string containing a valid JSON object.
 
 ```c
   char *path = enif_alloc(path_length);
   if (!(enif_get_string(env, argv[1], path, path_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
-```
 
-Extract the engine options, a valid JSON object.
-
-```c
   char *options = enif_alloc(options_length);
   if (!(enif_get_string(env, argv[2], options, options_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
 
-Create the database and return its idea in case of success, else
-returns an error with the reason "open_error".
+An integer is allocated to store the future database id generated by
+`cozo_open_db()` function. In case of success, this identifier is
+returned in a classical Erlang *tuple*, where the first element is an
+`ok` atom and the second one an integer created using
+`enif_make_int()`[^erlang-enif_make_int], converting `db_id` in an
+Erlang integer term.
+
+
 
 ```c
   int db_id;
@@ -681,16 +700,25 @@ returns an error with the reason "open_error".
 }
 ```
 
+[^erlang-enif_get_string_length]: [https://www.erlang.org/doc/man/erl_nif#enif_get_string_length](https://www.erlang.org/doc/man/erl_nif#enif_get_string_length)
+[^erlang-enif_make_badarg]: [https://www.erlang.org/doc/man/erl_nif#enif_make_badarg](https://www.erlang.org/doc/man/erl_nif#enif_make_badarg)
+[^erlang-enif_get_string]: [https://www.erlang.org/doc/man/erl_nif#enif_get_string](https://www.erlang.org/doc/man/erl_nif#enif_get_string)
+[^erlang-enif_make_int]: [https://www.erlang.org/doc/man/erl_nif#enif_make_int](https://www.erlang.org/doc/man/erl_nif#enif_make_int)
 [^libcozo-opendb]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23)
 
 ### `close_db` function
 
-`close_db()` function is an interface to
-`cozo_close_db()`[^libcozo-close].
+An opened database must be closed if not used anymore. `close_db()`
+function is an interface to `cozo_close_db()`[^libcozo-close] to deal
+with this part of the library.
 
 ```c
 static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 ```
+
+Database identifier is fetched from arguments with the help of
+`enif_get_int()`[^erlang-enif_get_int] function and stored in `db_id`
+variable. As usual, in case of failure, `badarg` is returned.
 
 ```c
   int db_id;
@@ -698,6 +726,9 @@ static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_badarg(env);
   }
 ```
+
+`cozo_close_db()` function is then called and in case of success, only
+`ok` atom is returned.
 
 ```c
   bool close_result = cozo_close_db(db_id);
@@ -706,21 +737,31 @@ static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
   }
 ```
 
+In case of failure though, a tuple containing `error` atom and the
+atom `close_error` is being returned.
+
 ```c
   return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "close_error"));
 }
 ```
 
+[^erlang-enif_get_int]: [https://www.erlang.org/doc/man/erl_nif#enif_get_int](https://www.erlang.org/doc/man/erl_nif#enif_get_int)
 [^libcozo-close]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L37](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L37)
 
 ### `run_query` function
 
-`run_query()` function is an interface to
+When a database is opened and active, queries can be executed. A query
+is a string composed of characters and following cozoscript
+syntax. `run_query()` function is an interface to
 `cozo_run_query()`[^libcozo-runquery].
 
 ```c
 static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 ```
+
+An opened database is identified by an integer, this one is fetched
+from the arguments passed to the function in `env` variable and then
+stored in `db_id` variable.
 
 ```c
   int db_id;
@@ -729,19 +770,25 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
   }
 ```
 
+Both cozoscript and parameters are strings. Their length must be
+extracted using `enif_get_string_length()` function and in case of
+failure returning `badarg` atom.
+
 ```c
   unsigned int script_raw_length;
   if (!enif_get_string_length(env, argv[1], &script_raw_length, ERL_NIF_UTF8)) {
     return enif_make_badarg(env);
   }
-```
 
-```c
   unsigned int params_raw_length;
   if (!enif_get_string_length(env, argv[2], &params_raw_length, ERL_NIF_UTF8)) {
     return enif_make_badarg(env);
   }
 ```
+
+The immutable flag is fetched as integer with `enif_get_int()`
+function. In fact, a `bool` might have done the job. This value is
+stored in `immutable` variable using `enif_get_int()` function.
 
 ```c
   int immutable;
@@ -750,32 +797,49 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
   }
 ```
 
+Cozoscript and parameters are then extracted with `enif_get_string()`
+function and respectively stored in `script_raw` dans `params_raw`
+variables.
+
 ```c
   char *script_raw = enif_alloc(script_raw_length);
   if (!(enif_get_string(env, argv[1], script_raw, script_raw_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
-```
 
-```c
   char *params_raw = enif_alloc(params_raw_length);
   if (!(enif_get_string(env, argv[2], params_raw, params_raw_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
 
+The query is now ready to be executed with `cozo_run_query()`
+function. The first argument is the database identifier, the second
+one the script, the third one is for parameters and finally the last
+one for the mutability of the database.
+
 ```c
   char *cozo_result = cozo_run_query(db_id, script_raw, params_raw,
                                      immutable ? true : false);
 ```
 
+A result is returned as string and needs to be converted as an Erlang
+term with `enif_make_string()` function.
+
 ```c
   ERL_NIF_TERM result_string = enif_make_string(env, cozo_result, ERL_NIF_UTF8);
 ```
 
+`cozo_free_str` must be called to free up the space allocated by the
+result of the function, this value is not needed anymore because it
+was converted as Erlang term and previously stored in `result_string`
+variable.
+
 ```c
   cozo_free_str(cozo_result);
 ```
+
+Finally, the result is returned with an `ok` atom in a tuple.
 
 ```c
   return enif_make_tuple2(env, atom_ok(env), result_string);
@@ -786,7 +850,11 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
 ## Low Level Interface with `cozo_nif` Module
 
- - [ ] describe `cozo_nif` module
+`cozo_nif` Erlang module is a low level interface to `cozo_nif`
+library. It offers two differents way to call this NIF, one is used to
+help developers to debug their applications and the second one (all
+function postfixed with `_nif`) is directly a raw access to the low
+level functions.
 
 ```erlang
 {ok, DbId} = cozo_nif:new().
@@ -808,9 +876,17 @@ ok = cozo_nif:close(DbId3).
 ok = cozo_nif:close(DbId4).
 ```
 
-### Generic Interface with `cozo` Module
+## Generic Interface with `cozo` Module
 
-Types and data-structures are defined in
+`cozo` Erlang module is a friendly interface and probably the main one
+to CozoDB. The idea is to offer an high level abstraction to the NIF
+with a big part of the feature directly integrated there. Lot of
+functions are exported to help developers to deal with the database.
+
+### Types and Record
+
+This module (and others) are trying hard to be fully specified, types
+and data-structures are defined in `include/cozo.hrl`.
 
 ```erlang
 -type db_id()         :: 0 | pos_integer().
@@ -831,36 +907,66 @@ Types and data-structures are defined in
 -type cozo() :: #cozo{ db_parent :: undefined | db_parent() }.
 ```
 
+### Generic Operations
+
+A new active database can be opened with `cozo:open/0`, `cozo:open/1`,
+`cozo:open/2` and `cozo:open/3` functions. These functions are
+returning the previously defined record containing all important
+information regarding this database.
+
 ```erlang
-{ok, Db} = cozo:new().
+{ok, Db} = cozo:open().
 ```
+
+Many accessors have been created to extract data from `cozo` record,
+like `cozo:get_id/1`, `cozo:get_options/1`, `cozo:get_path` or
+`cozo:get_engine/1`.
 
 ```erlang
 0 = cozo:get_id(Db).
+DbOptions = cozo:get_options(Db).
+DbPath = cozo:get_path(Db).
+DbEngine = cozo:get_engine(Db).
 ```
 
-```erlang
-cozo:get_options(Db).
-```
 
 ```erlang
-cozo:get_engine(Db).
+ok = cozo:close(Db).
 ```
+
+### Running Queries
+
+At this time, the library only offer a simple cozoscript interface to
+CozoDB using mainly an Erlang string with `cozo:run/*` functions.
 
 ```erlang
 cozo:run("").
 ```
+
+### Importing and Exporting Relations
+
+*Relations* can be exported and imported.
 
 ```erlang
 cozo:import_relations(Db, "").
 cozo:export_relations(Db, "").
 ```
 
+### Database Backups and Restoration
+
+An active database can have backups, and those backups can be restored
+and imported.
+
 ```erlang
 cozo:backup(Db, "").
 cozo:restore(Db, "").
 cozo:import_backup(Db, "").
 ```
+
+### Managing Relations
+
+Most the of the system commands have their own dedicated functions,
+that the case when one needs to deal with *relations*.
 
 ```erlang
 cozo:create_relation(Db, "", "").
@@ -870,26 +976,28 @@ cozo:delete_relation(Db, "").
 cozo:delete_relations(Db, ["", ""]).
 ```
 
+### Managing Indexes
+
 ```erlang
 cozo:create_index(Db, "", "").
 cozo:list_indices(Db, "").
 cozo:delete_index(Db, "").
 ```
 
+### Managing Triggers
+
 ```erlang
 cozo:set_triggers(Db, "").
 cozo:get_triggers(Db, "").
 ```
 
+### Managing Columns
+
 ```erlang
 cozo:list_columns(Db, "").
 ```
 
-```erlang
-ok = cozo:close(Db).
-```
-
-### Isolated Interface with `cozo_db` Module
+## Isolated Interface with `cozo_db` Module
 
 `cozo_db` was created to isolate a database behind an Erlang process
 and linearize the queries and answers. The idea is to offer an easy
@@ -942,7 +1050,9 @@ can be easily converted to something Erlang compatible with
 
 Finally, `erlang_nif.c` is not tested against memory leaks and other
 kind of C related issues. It should be planned to create test suites
-and analyze this part of the code with Valgrind[^valgrind].
+and analyze this part of the code with Valgrind[^valgrind]. Error
+messages and guards must also be added to ensure a good programming
+experience.
 
 [^erlang-match-specification]: [https://www.erlang.org/doc/apps/erts/match_spec.html](https://www.erlang.org/doc/apps/erts/match_spec.html)
 [^datahike]: [https://github.com/replikativ/datahike](https://github.com/replikativ/datahike)
