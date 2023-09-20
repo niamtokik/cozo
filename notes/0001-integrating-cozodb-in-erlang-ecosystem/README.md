@@ -268,13 +268,16 @@ also be compiled as web assembly library with the project
 
 CozoDB offers a scripting language called Cozoscript to interact with
 the database. The syntax is inspired from Prolog and Datalog, but with
-many differences.
+many differences. The scripts in this paragraph can easily be executed
+on any modern web browsers in the [*CozoDB
+Playground*](https://www.cozodb.org/wasm-demo/)[^cozodb-playground].
 
 Let create something similar than the example created with prolog
-using cozodb. To create a relation in cozoscript the `:create`
-function is used, followed by the name of the relation and its
-spec. The fields before the arrow are the primary key, in this case,
-`name`.
+using cozodb. *Relation* is the name used to define a *table* in
+cozodb, and can be created using `:create` followed by two arguments,
+the first one is the name of the relation and then the specification
+of each columns. Relations `user` and `character` are defined in code
+below.
 
 ```cozoscript
 :create user {
@@ -285,8 +288,6 @@ spec. The fields before the arrow are the primary key, in this case,
 }
 ```
 
-`character` relation.
-
 ```cozoscript
 :create character {
   name: String,
@@ -296,7 +297,11 @@ spec. The fields before the arrow are the primary key, in this case,
 }
 ```
 
-`tag` relation.
+The arrow `=>` separates the primary key from standard one. All
+columns are typed and can be set as `Null`, `Bool`, `Number` (`Int` or
+`Float`), `String`, `Bytes`, `Uuid`, `List`, `Vector`, `Json` or
+`Validity`. Without an arrow `=>` all the keys are consired primary,
+like in the `tag` relation definition.
 
 ```cozoscript
 :create tag {
@@ -305,10 +310,14 @@ spec. The fields before the arrow are the primary key, in this case,
 }
 ```
 
-Same can be execute once using multi-transaction syntax.
+All the previous code presented must be executed one at a time. If
+someone want to execute in a specific order and in the same session,
+each queries must be isolated in command blocks, enclosed in curly
+brackets (`{` and `}`). A multiline query must start with a space.
+
 
 ```cozoscript
-{
+ {
   :create user {
     name: String,
     =>
@@ -316,8 +325,7 @@ Same can be execute once using multi-transaction syntax.
     password: String
   }
 }
-
-{
+ {
   :create character {
     name: String,
     =>
@@ -326,43 +334,53 @@ Same can be execute once using multi-transaction syntax.
   }
 }
 
-{
+ {
   :create tag {
     name: String,
     tag: String
   }
 }
-
 ```
 
-These relations can be listing using `::relations` system operator.
+CozoDB offers also few commands to manage the database. To return the
+list of created *relations*, `::relations` system command can be used.
 
 ```cozoscript
 ::relations
 ```
 
-| `name`    | `arity` | `access_levpel` | `n_keys` | `n_non_keys` | `n_put_triggers` | `n_rm_triggers` | `n_replace_triggers` | `description` |
-| :-        | - | -     | - | - | - | - | - | - |
-| character | 3 | normal | 1 | 2 | 0 | 0 | 0 |
-| tag       | 2 | normal | 2 | 0 | 0 | 0 | 0 |
-| user      | 3 | normal | 1 | 2 | 0 | 0 | 0 |
+It will return a complete description of each *relations*.
 
-Columns can be listing using `::columns` system operator.
+| `name`        | `arity`        | `access_ levpel` | `n_ keys` | `n_ non_ keys` | `n_ put_ triggers` | `n_ rm_ triggers` | `n_ replace_ triggers` | `description` |
+| :-            | - | -          | - | - | - | - | - | - |
+| `"character"` | `3` | `"normal"` | `1` | `2` | `0` | `0` | `0` | `""`
+| `"tag"`       | `2` | `"normal"` | `2` | `0` | `0` | `0` | `0` | `""`
+| `"user"`      | `3` | `"normal"` | `1` | `2` | `0` | `0` | `0` | `""`
+
+Same can be done for all *columns* defined in a *relation* with the
+help of `::colums` system command.
 
 ```cozoscript
 ::columns user
 ```
 
-| `column` | `is_key` | `index` | `type` | `has_default` |
-| :-       | -        | -       | -      | -             |
-| name     | true     | 0       | String | false         |
-| age      | false    | 1       | Int    | false         |
-| password | false    | 2       | String | false         |
+Another table is returned, but this time with the description of each
+*columns*.
 
-Data injection.
+| `column`     | `is_key`   | `index`   | `type`   | `has_default` |
+| :-           | -          | -         | -        | -             |
+| `"name"`     | `true`     | `0`       | `String` | `false`       |
+| `"age"`      | `false`    | `1`       | `Int`    | `false`       |
+| `"password"` | `false`    | `2`       | `String` | `false`       |
+
+
+Data can be injected in *relations* with `:put` command. A list of raw
+data is serialized as list and then matched on the left side of the
+query. Elements are then pushed into the wanted *relation* using
+`:put`.
 
 ```cozoscript
-{
+ {
   ?[name, age, password] <- [
     ['John Smith', 42, 'StrongPassword'],
     ['Bill Kill', 57, 'Beatrix'],
@@ -370,8 +388,7 @@ Data injection.
   ]
   :put user { name => age, password }
 }
-
-{
+ {
   ?[name, sex, alignment] <- [
     ['John Smith', 'male', 'bad'],
     ['Bill Kill', 'male', 'bad'],
@@ -379,8 +396,7 @@ Data injection.
   ]
   :put character { name => sex, alignment }
 }
-
-{
+ {
   ?[name, tag] <- [
     ['John Smith', 'Matrix'],
     ['John Smith', 'Glasses'],
@@ -394,11 +410,19 @@ Data injection.
 }
 ```
 
-List all data from `user` relation
+All data stored in a relation can be listed using a *query* composed
+in two parts. An inline rule can be used here, the part on the left
+will extract the data from the right part following the `:=` operator.
 
 ```cozoscript
 ?[name, age, password] := *user[name, age, password]
 ```
+
+| name               | age | password           |
+|                 -: |  -: |                 -: |
+| `"Bill Kill"`      |  57 |        `"Beatrix"` |
+| `"John Smith"`     |  42 | `"StrongPassword"` |
+| `"Luke Skywalker"` |  24 |    `"IHateBrenda"` |
 
 ```cozoscript
 ::explain { ?[name] := *user[name, age, password] }
@@ -406,26 +430,33 @@ List all data from `user` relation
 
 | `stratum` | `rule_idx` | `rule` | `atom_idx` | `op` | `ref` | `joins_on` | `filters/expr` | `out_relation` |
 | - | - | - | - | ---         | --    | --   | --   | ---                           |
-| 0 | 0 | ? | 1 | load_stored | :user | null | []   | `["name", "age", "password"]` |
-| 0 | 0 | ? | 0 | out         | null  | null | null | `["name"]` |
+| `0` | `0` | `?` | `1` | `load_stored` | `:user` | `null` | `[]`   | `["name", "age", "password"]` |
+| `0` | `0` | `?` | `0` | `out`         | `null`  | `null` | `null` | `["name"]` |
 
 ```cozoscript
 ?[name, sex, alignment] := *character[name, sex, alignment]
 ```
 
-| name           | sex  | alignment |
-| :-             | -    | -         |
-| Bill Kill      | male | bad       |
-| John Smith     | male | bad       |
-| Luke Skywalker | make | good      |
+| name               | sex      | alignment |
+| :-                 | -        | -         |
+| `"Bill Kill"`      | `"male"` | `"bad"`   |
+| `"John Smith"`     | `"male"` | `"bad"`   |
+| `"Luke Skywalker"` | `"male"` | `"good"`  |
 
 ```cozoscript
 ?[name, tag] := *tag[name, tag]
 ```
 
 | name | tag |
-| -    | -   |
-|      |     |
+|   -: | -: | 
+|      `"Bill Kill"` | `"Five Fingers Death Punch"` |
+|      `"Bill Kill"` |                   `"Katana"` |
+|     `"John Smith"` |                  `"Glasses"` |
+|     `"John Smith"` |                  `"Machine"` |
+|     `"John Smith"` |                   `"Matrix"` |
+| `"Luke Skywalker"` |                     `"Jedi"` |
+| `"Luke Skywalker"` |              `"Light Saber"` |
+
 
 ```cozoscript
 ?[name, tag, age] := *tag[name, tag],
@@ -433,10 +464,10 @@ List all data from `user` relation
                      name == 'Bill Kill'
 ```
 
-| name | tag |
-| -    | -   |
-| Bill Kill | Five Fingers Death Punch | 57 |
-| Bill Kill | Katana                   | 57 |
+| name | tag | age |
+|   -: | -: |  -: |
+| `"Bill Kill"` | `"Five Fingers Death Punch"` | `"57"` |
+| `"Bill Kill"` |                   `"Katana"` | `"57"` |
 
 ```cozoscript
 ::explain { ?[name, tag, age] := *tag[name, tag],
@@ -445,7 +476,21 @@ List all data from `user` relation
 }
 ```
 
+| stratum | `rule_idx` | `rule` | `atom_idx` | `op`                   | `ref`     | `joins_on`       | `filters/expr`                | `out_relation` |
+|      -: |         -: |     -: |         -: |                  ----: |       --: |             ---: |                         ----: | ----: |
+| 0       | 0          | `"?"`  | `3`        | `"load_stored"`        | `":tag"`  | `null`           | `["eq(name, \"Bill Kill\")"]` | `["name", "tag"]` |
+| 0       | 0          | `"?"`  | `2`        | `"load_stored"`        | `":user"` | `null`           | `[]`                          | `["**0", "age", "password"]` |
+| 0       | 0          | `"?"`  | `1`        | `"stored_prefix_join"` | `null`    | `{"name":"**0"}` | `null`                        | `["name", "tag", "age"]` |
+| 0       | 0          | `"?"`  | `0`        | `"out"`                | `null`    | `null`           | `null`                        | `["name", "tag", "age"]` |
+
+`<-` is in fact a syntactic sugar made to simplify the use of the
+curly tail `<~` denoting a fixed rule but that's another level of
+complexity someone interested can check directly on the [official
+tutorial](https://docs.cozodb.org/en/latest/tutorial.html)[^cozodb-tutorial].
+
 [^cozo-official-website]: [https://www.cozodb.org/](https://www.cozodb.org/)
+[^cozodb-playground]: [https://www.cozodb.org/wasm-demo/](https://www.cozodb.org/wasm-demo/)
+[^cozodb-tutorial]: [https://docs.cozodb.org/en/latest/tutorial.html](https://docs.cozodb.org/en/latest/tutorial.html)
 
 ## CozoDB Interface with `libcozo_c`
 
