@@ -1073,7 +1073,11 @@ big trouble. Thus, one the most annoying problem was related to local
 path for C libraries and headers, but this is related to LLVM or GCC
 and the configuration used during this implementation. In less than a
 week, this application was usable, documented, tested and
-specified.
+specified. Many more modifications need to be done to make this module
+ready for production, but the current implementation can be used for
+testing and perhaps proof of concepts. If interested to help or want
+to be involved in this project, don't hesitate to contact me.
+
 
 Special thanks to Alejandro M. Ramallo[^alejandro-m-ramallo-github]
 who shared this project idea with me and was here to add MacOS
@@ -1296,6 +1300,10 @@ SELECT *
 | [souffle-lang/souffle](https://github.com/souffle-lang/souffle) |     C++ |
 | [tonsky/datascript](https://github.com/tonsky/datascript)       | Clojure |
 | [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
+
+## ANNEXE F - Unit testing, Dialyzer, and Coverage
+
+TODO
 
 ## Notes
 
