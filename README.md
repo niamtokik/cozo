@@ -8,7 +8,10 @@
 ![Cozo Repository File Count](https://img.shields.io/github/directory-file-count/niamtokik/cozo)
 ![Cozo Repository Size](https://img.shields.io/github/repo-size/niamtokik/cozo)
 
-This is an Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS embeddable, transactional, relational-graph-vector database, with time travelling capability, perfect as the long-term memory for LLMs and AI.
+An Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS
+embeddable, transactional, relational-graph-vector database, with time
+travelling capability, perfect as the long-term memory for LLMs and
+AI.
 
 
 ## Support
@@ -34,7 +37,7 @@ This is an Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS embed
  - [ ] Create test suite for maintenance commands (`cozo` module)
    - [x] test `cozo:import_relations/2` function
    - [x] test `cozo:export_relations/2` function
-   - [ ] test `cozo:backup/2` function
+   - [x] test `cozo:backup/2` function
    - [ ] test `cozo:restore/2` function
    - [ ] test `cozo:import_backup/2` function
    
@@ -50,7 +53,7 @@ This is an Erlang NIF wrapper for [CozoDB](https://www.cozodb.org), a FOSS embed
    - [ ] `cozo:list_indices/2`
    - [ ] `cozo:explain/2`
    - [ ] `cozo:describe/3`
-   - [ ] `cozo:get_triggers/2`
+   - [ ] `cozo:get_triggers/2`, `cozo:set_triggers/3`, `cozo:delete_triggers/2`
    - [ ] `cozo:set_access_level/3` 
    - [ ] `cozo:set_access_levels/3`
    - [ ] `cozo:get_running_queries/1`
@@ -104,6 +107,13 @@ Open the documentation.
 
 ```sh
 open doc/index.html
+```
+
+Notes are also available in `notes` directory. You can exported them
+in PDF, EPUB or HTML format if you have `pandoc` installed.
+
+```sh
+make notes
 ```
 
 ## Usage
