@@ -706,7 +706,7 @@ list_indices(Db, Name) ->
       Return :: query_return().
 
 create_index(Db, Name, Spec) ->
-    Command = string:join(["::index", "create", Name, Spec], " "),
+    Command = string:join(["::index", "create", Name, "{", Spec, "}"], " "),
     run(Db, Command).
 
 %%--------------------------------------------------------------------

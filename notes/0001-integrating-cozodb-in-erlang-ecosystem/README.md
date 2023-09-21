@@ -689,8 +689,6 @@ returned in a classical Erlang *tuple*, where the first element is an
 `enif_make_int()`[^erlang-enif_make_int], converting `db_id` in an
 Erlang integer term.
 
-
-
 ```c
   int db_id;
   if (!cozo_open_db(engine, path, options, &db_id)) {
@@ -857,31 +855,43 @@ function postfixed with `_nif`) is directly a raw access to the low
 level functions.
 
 ```erlang
-{ok, DbId} = cozo_nif:new().
+{ok, DbId} = cozo_nif:open_db("mem\n", "/tmp/test.db\n", "{}\n").
 ok = cozo_nif:close(DbId).
 ```
 
-```erlang
-{ok, DbId2} = cozo_nif:new("mem\n").
-ok = cozo_nif:close(DbId2).
-```
+Debugging can be activated on this module with
+`logger:set_module_level/2` function. At this time, only debug message
+containing simply the functions and their return is printed on the
+screen.
 
 ```erlang
-{ok, DbId3} = cozo_nif:new("mem\n", "my_path\n").
-ok = cozo_nif:close(DbId3).
+logger:set_module_level(cozo_nif, debug).
+cozo_nif:open_db("mem\n", "/tmp/test.db\n", "{}\n").
 ```
 
-```erlang
-{ok, DbId4} = cozo_nif_new("mem\n", "my_path\n", "{}\n").
-ok = cozo_nif:close(DbId4).
 ```
+=DEBUG REPORT==== 21-Sep-2023::12:57:41.229157 ===
+#{args => ["mem\n","/tmp/test.db\n","{}\n"],
+  caller => <0.348.0>,function => open_db,module => cozo_nif}
+  {ok,2}
+=DEBUG REPORT==== 21-Sep-2023::12:57:41.229911 ===
+#{return => {ok,2},
+  args => ["mem\n","/tmp/test.db\n","{}\n"],
+  caller => <0.348.0>,function => open_db_nif,module => cozo_nif}
+```
+
+`cozo_nif:open_db/3` is a wrapper for `cozo_nif:open_db_nif/3`, the
+one exported from the NIF. Nothing more to show on this module, this
+is a very standard NIF implementation without any surprise and quite
+boring.
 
 ## Generic Interface with `cozo` Module
 
-`cozo` Erlang module is a friendly interface and probably the main one
-to CozoDB. The idea is to offer an high level abstraction to the NIF
-with a big part of the feature directly integrated there. Lot of
-functions are exported to help developers to deal with the database.
+`cozo` Erlang module is a friendly interface and at this time the main
+one to interact correctly with CozoDB. The idea is to offer an high
+level abstraction to the NIF with a big part of the features directly
+integrated there. Lot of functions are exported to help developers to
+deal with the database.
 
 ### Types and Record
 
@@ -896,6 +906,9 @@ and data-structures are defined in `include/cozo.hrl`.
 -type db_parent()     :: pid().
 -type db_query()      :: string() | binary() | [string(), ...].
 ```
+
+`cozo` record includes the parameters passed to the database when
+opened.
 
 ```erlang
 -record(cozo, { id = undefined        :: undefined | db_id()
@@ -918,6 +931,17 @@ information regarding this database.
 {ok, Db} = cozo:open().
 ```
 
+`cozo:open/0` function opens a new in memory database with a random
+path and default options. `cozo:open/1` lets developers select the
+engine needed, a path will be automatically generated and default
+options will be used. `cozo:open/2` lets developers chosing the engine
+and the path but default options will be used. Finally, `cozo:open/3`
+can configure all elements of the database.
+
+```erlang
+{ok, Db} = cozo:open(sqlite, "/tmp/my_path.db", #{}).
+```
+
 Many accessors have been created to extract data from `cozo` record,
 like `cozo:get_id/1`, `cozo:get_options/1`, `cozo:get_path` or
 `cozo:get_engine/1`.
@@ -929,6 +953,7 @@ DbPath = cozo:get_path(Db).
 DbEngine = cozo:get_engine(Db).
 ```
 
+Any opened database can be closed using `cozo:close/1` function.
 
 ```erlang
 ok = cozo:close(Db).
@@ -940,51 +965,256 @@ At this time, the library only offer a simple cozoscript interface to
 CozoDB using mainly an Erlang string with `cozo:run/*` functions.
 
 ```erlang
-cozo:run("").
+cozo:run(3, "?[] <- [[1,2,3]]").
+```
+
+This function will return a tuple containing with a JSON parsed
+result.
+
+```erlang
+{ok,#{<<"headers">> => [<<"_0">>,<<"_1">>,<<"_2">>],
+      <<"next">> => null,<<"ok">> => true,
+      <<"rows">> => [[1,2,3]],
+      <<"took">> => 0.01818754}}
+```
+
+The previous command is equivalent to the one below, where default
+parameters are passed and mutability is set to `false`.
+
+```erlang
+cozo:run(Db, "?[] <- [[1,2,3]]", #{}, false).
+```
+
+`cozo:run/*` functions are used to send queries, and also system
+commands. A new relation can be created using `:create` command.
+
+```erlang
+cozo:run(Db, ":create test { key: String, value: String }").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 0.038191377}}
+```
+
+Rows can also be added as well with `:put` command.
+
+```erlang
+cozo:run(Db, "?[key, value] <- [['key','value']] :put test {key, value}").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 0.039636681}}
+```
+
+Finally, stored rows on `test` *relation* can be extracted as well.
+
+```erlang
+cozo:run(Db, "?[key, value] := *test{key, value}").
+% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"key">>,<<"value">>]],
+%       <<"took">> => 0.010064009}}
 ```
 
 ### Importing and Exporting Relations
 
-*Relations* can be exported and imported.
+*Relations* can be exported and imported. To export the full content
+of a relation, `cozo:export_relations/2` can be used. A map containing
+the name of the relation needs to be create in the format `#{
+<<"relations>> => [R1, R2, RN]}` where `R1`, `R2` and `RN` are the
+names of the relations. This function returns another map converted
+from JSON object with the rows and the headers of the *relation*.
 
 ```erlang
-cozo:import_relations(Db, "").
-cozo:export_relations(Db, "").
+Payload = #{ <<"relations">> => [<<"test">>] },
+{ok, Result} = cozo:export_relations(Db, Payload).
+% {ok, #{ <<"data">> =>
+%         #{ <<"test">> =>
+%            #{ <<"headers">> => [<<"key">>,<<"value">>],
+%               <<"next">> => null,
+%               <<"rows">> => [[<<"key">>,<<"value">>]]
+%             }
+%          },
+%         <<"ok">> => true
+%       }
+% }
 ```
+
+Headers and rows can be imported using `cozo:import_relations/2`
+function. Exported data can be reimported by extract the content of
+the field `<<"data">>`and reinject them.
+
+```erlang
+#{ <<"data">> := Import } = Result.
+{ok, _} = cozo:import_relations(Db, Import).
+% {ok,#{<<"ok">> => true}}
+```
+
+This part needs to be improved, creating maps data-structure without
+knowing what kind of fields are required is annoying and can lead to
+errors.
 
 ### Database Backups and Restoration
 
-An active database can have backups, and those backups can be restored
-and imported.
+An active database can have backups, and those backups can also be
+restored. To create a backup, `cozo:backup/2` function is used, the
+second argument must be a valid path.
 
 ```erlang
-cozo:backup(Db, "").
-cozo:restore(Db, "").
-cozo:import_backup(Db, "").
+{ok, _} = cozo:backup(Db, "/tmp/data.dump").
 ```
 
+The backup file is using sqlite format.
+
+```sh
+file /tmp/data.dump
+# /tmp/data.dump: SQLite 3.x database,
+#   last written using SQLite version 3039002
+
+sqlite /tmp/data.dump
+# sqlite> .schema
+# CREATE TABLE cozo
+#         (
+#            k BLOB primary key,
+#            v BLOB
+# );
+```
+
+To restore a database using `cozo:restore/2`, a new empty database
+needs to be created. When successfully restored, headers and rows are
+back.
+
+```erlang
+{ok, DbRestore} = cozo:open().
+{ok, _} = cozo:restore(DbRestore, "/tmp/data.dump").
+cozo:run(4, "?[key, value] := *test{key, value}").
+% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"key">>,<<"value">>]],
+%       <<"took">> => 1.97193e-4}}
+```
+
+Another way to do a restore is to use `cozo:import_backup/2`. This
+time a map is passed with the path and the relations to import as
+list of string.
+
+```erlang
+Payload = #{
+  <<"path">> => <<"/tmp/data.dump">>,
+  <<"relations">> => [<<"test">>]
+}.
+{ok, _} = cozo:import_backup(Db, Payload).
+```
+
+This interface needs to be improved, configuring map without
+specification is hard and can be highly confusing.
+
 ### Managing Relations
+
+**Note: these interfaces are unstable and will change in the next
+releases.**
 
 Most the of the system commands have their own dedicated functions,
 that the case when one needs to deal with *relations*.
 
 ```erlang
-cozo:create_relation(Db, "", "").
-cozo:replace_relation(Db, "", "").
-cozo:list_relations(Db).
-cozo:delete_relation(Db, "").
-cozo:delete_relations(Db, ["", ""]).
+cozo:create_relation(Db, "managing_relations"
+                       , "key => value").
+
+cozo:create_relation(Db, "managing_relations2"
+                       , "key: String => value: String").
+
+cozo:create_relation(Db, "managing_relation3"
+                       , [c1, c2, c3]).
 ```
+
+Relations can also be listed with the help of `cozo:list_relations/1`
+function, still returned as map structure from JSON object.
+
+```erlang
+{ok, Relations} = cozo:list_relations(Db).
+% {ok,#{<<"headers">> =>
+%           [<<"name">>,<<"arity">>,<<"access_level">>,<<"n_keys">>,
+%            <<"n_non_keys">>,<<"n_put_triggers">>,<<"n_rm_triggers">>,
+%            <<"n_replace_triggers">>,<<"description">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> =>
+%           [[<<"managing_relation3">>,3,<<"normal">>,3,0,0,0,0,<<>>],
+%            [<<"managing_relations">>,2,<<"normal">>,1,1,0,0,0,<<>>],
+%            [<<"managing_relations2">>,2,<<"normal">>,1,1,0,0,0,<<>>]],
+%       <<"took">> => 6.6139e-5}}
+```
+
+Finally, relations can be removed using `cozo:delete_relation/2` or
+`cozo:delete_relations/2` function.
+
+```erlang
+{ok, _} = cozo:delete_relation(Db, "managing_relation3").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%      <<"took">> => 2.21824e-4}}
+
+{ok, _} = cozo:delete_relations(Db, ["managing_relations", "managing_relations2"]).
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 5.7769e-5}}
+```
+
+Other functions like `cozo:replace_relation/3`, `cozo:put_row/3`,
+`cozo:update_row/3`, `cozo:delete_row/3`, `cozo:ensure_row/3` and
+`cozo:ensure_not_row/3` need to be deeply tested and are currently not
+working correctly.
 
 ### Managing Indexes
 
+**Note: these interfaces are unstable and will change in the next
+releases.**
+
+A new relation called `managing_index` is created for this example.
+
 ```erlang
-cozo:create_index(Db, "", "").
-cozo:list_indices(Db, "").
-cozo:delete_index(Db, "").
+{ok, _} = cozo:create_relation(Db, "managing_index", "key => value").
+```
+
+An index can be created using `cozo:create_index/3` function, where
+the second argument is the name of the index, and the last one is the
+specification for this index, basically, the name of the column.
+
+```erlang
+{ok, _} = cozo:create_index(Db, "managing_index:index", "key").
+```
+
+All indexes can be listed on a *relation* using `cozo:list_indices/2`.
+
+```erlang
+{ok, _} = cozo:list_indices(Db, "managing_index").
+% {ok,#{<<"headers">> =>
+%          [<<"name">>,<<"type">>,<<"relations">>,<<"config">>],
+%      <<"next">> => null,<<"ok">> => true,
+%      <<"rows">> =>
+%          [[<<"index">>,<<"normal">>,
+%            [<<"managing_index:index">>],
+%            #{<<"indices">> => [0]}]],
+%      <<"took">> => 7.0669e-5}}
+```
+
+Finally, an index can also be removed using `cozo:delete_index/2`
+function.
+
+```erlang
+{ok, _} = cozo:delete_index(Db, "managing_index:index").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 8.5379e-5}}
 ```
 
 ### Managing Triggers
+
+**Note: these interfaces are unstable and will change in the next
+releases.**
 
 ```erlang
 cozo:set_triggers(Db, "").
@@ -993,17 +1223,39 @@ cozo:get_triggers(Db, "").
 
 ### Managing Columns
 
+**Note: these interfaces are unstable and will change in the next
+releases.**
+
 ```erlang
-cozo:list_columns(Db, "").
+{ok, _ } = cozo:list_columns(Db, "manging_index").
+% {ok,#{<<"headers">> =>
+%           [<<"column">>,<<"is_key">>,<<"index">>,<<"type">>,
+%            <<"has_default">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> =>
+%           [[<<"key">>,true,0,<<"Any?">>,false],
+%            [<<"value">>,false,1,<<"Any?">>,false]],
+%       <<"took">> => 6.2358e-5}}
+```
+
+```erlang
+cozo:explain(Db, "?[] <- [[1,2,3]]").
+{ok,#{<<"headers">> =>
+          [<<"stratum">>,<<"rule_idx">>,<<"rule">>,<<"atom_idx">>,
+           <<"op">>,<<"ref">>,<<"joins_on">>,<<"filters/expr">>,
+           <<"out_relation">>],
+      <<"next">> => null,<<"ok">> => true,
+      <<"rows">> =>
+          [[0,0,<<"?">>,0,<<"algo">>,null,null,null,null]],
+      <<"took">> => 1.43279e-4}}
 ```
 
 ## Isolated Interface with `cozo_db` Module
 
 `cozo_db` was created to isolate a database behind an Erlang process
-and linearize the queries and answers. The idea is to offer an easy
-way to synchronize and distribute queries in a cluster
-environment. All interfaces are similar than the ones defined in
-`cozo` module.
+and linearize queries and answers. The idea is to offer an easy way to
+synchronize and distribute queries in a cluster environment. All
+interfaces are similar than the ones defined in `cozo` module.
 
 ```erlang
 {ok, Db} = cozo_db:new().
