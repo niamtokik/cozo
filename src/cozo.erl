@@ -64,7 +64,7 @@
 -export([list_indices/2, create_index/3, delete_index/2]).
 
 % manage triggers
--export([get_triggers/2, set_triggers/3]).
+-export([get_triggers/2, set_triggers/3, delete_triggers/2]).
 
 % manage hsnw
 -export([create_hnsw/3, delete_hnsw/2]).
@@ -854,7 +854,21 @@ get_triggers(Db, Name) ->
       Return :: query_return().
 
 set_triggers(Db, Name, Spec) ->
-    Command = string:join(["::show_triggers", Name, Spec], " "),
+    Command = string:join(["::set_triggers", Name, Spec], " "),
+    run(Db, Command).
+
+%%--------------------------------------------------------------------
+%% @doc Unstable interface. Reset/delete a trigger.
+%%
+%% @end 
+%%--------------------------------------------------------------------
+-spec delete_triggers(Db, Name) -> Return when
+      Db     :: db_id() | cozo(),
+      Name   :: string(),
+      Return :: query_return().
+    
+delete_triggers(Db, Name) ->
+    Command = string:join(["::set_triggers", Name], " "),
     run(Db, Command).
 
 %%--------------------------------------------------------------------

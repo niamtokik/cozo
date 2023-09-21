@@ -1111,11 +1111,11 @@ specification is hard and can be highly confusing.
 
 ### Managing Relations
 
-**Note: these interfaces are unstable and will change in the next
-releases.**
-
-Most the of the system commands have their own dedicated functions,
-that the case when one needs to deal with *relations*.
+CozoDB can manage relations with dedicated commands, at this time, the
+integration of this feature is unstable and will change in the
+releases. Use them with care. Most the of the system commands have
+their own dedicated functions, that the case when one needs to deal
+with *relations*.
 
 ```erlang
 cozo:create_relation(Db, "managing_relations"
@@ -1169,10 +1169,10 @@ working correctly.
 
 ### Managing Indexes
 
-**Note: these interfaces are unstable and will change in the next
-releases.**
-
-A new relation called `managing_index` is created for this example.
+CozoDB can created indexes, at this time, the integration of this
+feature is unstable and will change in the releases. Use them with
+care. A new relation called `managing_index` is created for this
+example.
 
 ```erlang
 {ok, _} = cozo:create_relation(Db, "managing_index", "key => value").
@@ -1213,21 +1213,117 @@ function.
 
 ### Managing Triggers
 
-**Note: these interfaces are unstable and will change in the next
-releases.**
+CozoDB can manage triggers with dedicated commands, at this time, the
+integration of this feature is unstable and will change in the
+releases. A trigger consist of an action or a query being executed
+when something happens on a relation.
 
 ```erlang
-cozo:set_triggers(Db, "").
-cozo:get_triggers(Db, "").
+{ok, Db} = cozo:open().
 ```
 
-### Managing Columns
-
-**Note: these interfaces are unstable and will change in the next
-releases.**
+Two relations are created, `store` will received new data and
+`replica` will replicated the data from `store` using triggers.
 
 ```erlang
-{ok, _ } = cozo:list_columns(Db, "manging_index").
+{ok, _} = cozo:create_relation(Db, "store", "key => value").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 1.12455e-4}}
+
+{ok, _} = cozo:create_relation(Db, "replica", "key => value").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 1.16418e-4}}
+```
+
+Trigger's name must reflect the name of the `relation`. In this case,
+the trigger will be called `store`. The query used will fetch all new
+data and put them in `replica`.
+
+```erlang
+Trigger = "on put { "
+  "?[key,value] := _new[key,value]" 
+  ":put replica{k,v} }".
+{ok, _} = cozo:set_triggers(Db, "store", Trigger).
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 1.5311e-4}}
+```
+
+To be sure each relations are empty, a query can be executed with
+`cozo:run/2`.
+
+```erlang
+{ok, _} = cozo:run(Db, "?[key, value] := *store[key, value]").
+% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
+%       <<"next">> => null,<<"ok">> => true,<<"rows">> => [],
+%       <<"took">> => 1.81164e-4}}
+
+{ok, _} = cozo:run(Db, "?[key, value] := *replace[key, value]").
+% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
+%       <<"next">> => null,<<"ok">> => true,<<"rows">> => [],
+%       <<"took">> => 1.69025e-4}}
+```
+
+When inserting new data into `store` relation, they are replicated
+into `replica` *relation* as well.
+
+```erlang
+cozo:run(Db, "?[key, value] <- [[1,2],[2,3]] :put store{key, value}").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 6.91881e-4}}
+
+cozo:run(Db, "?[key, value] := *store[key, value]").
+% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[1,2],[2,3]],
+%       <<"took">> => 6.1221e-4}}
+
+cozo:run(Db, "?[key, value] := *replica[key, value]").
+% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[1,2],[2,3]],
+%       <<"took">> => 3.38856e-4}}
+```
+
+Triggers can be checked using `cozo:get_triggers/2`.
+
+```erlang
+{ok, _ } = cozo:get_triggers(Db, "store").
+% {ok,#{<<"headers">> => [<<"type">>,<<"idx">>,<<"trigger">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> =>
+%           [[<<"put">>,0,
+%             <<"?[key,value] := _new[key,value]; :put replica{key,value} ">>]],
+%       <<"took">> => 4.8507e-5}}
+```
+
+Finally, triggers can be reset or deleted using
+`cozo:delete_triggers/2`.
+
+```erlang
+{ok, _} = cozo:delete_triggers(Db, "store").
+% {ok,#{<<"headers">> => [<<"status">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> => [[<<"OK">>]],
+%       <<"took">> => 1.38564e-4}}
+```
+
+### Extra features
+
+CozoDB can do a lot more than just dealing with data, at this time,
+the integration of these features is unstable and will change in the
+releases. Columns definition can be listed using
+`cozo:list_columns/2`.
+
+```erlang
+{ok, _ } = cozo:list_columns(Db, "managing_index").
 % {ok,#{<<"headers">> =>
 %           [<<"column">>,<<"is_key">>,<<"index">>,<<"type">>,
 %            <<"has_default">>],
@@ -1238,16 +1334,18 @@ releases.**
 %       <<"took">> => 6.2358e-5}}
 ```
 
+Queries can also be explained using `cozo:explain/2`.
+
 ```erlang
 cozo:explain(Db, "?[] <- [[1,2,3]]").
-{ok,#{<<"headers">> =>
-          [<<"stratum">>,<<"rule_idx">>,<<"rule">>,<<"atom_idx">>,
-           <<"op">>,<<"ref">>,<<"joins_on">>,<<"filters/expr">>,
-           <<"out_relation">>],
-      <<"next">> => null,<<"ok">> => true,
-      <<"rows">> =>
-          [[0,0,<<"?">>,0,<<"algo">>,null,null,null,null]],
-      <<"took">> => 1.43279e-4}}
+% {ok,#{<<"headers">> =>
+%           [<<"stratum">>,<<"rule_idx">>,<<"rule">>,<<"atom_idx">>,
+%            <<"op">>,<<"ref">>,<<"joins_on">>,<<"filters/expr">>,
+%            <<"out_relation">>],
+%       <<"next">> => null,<<"ok">> => true,
+%       <<"rows">> =>
+%           [[0,0,<<"?">>,0,<<"algo">>,null,null,null,null]],
+%       <<"took">> => 1.43279e-4}}
 ```
 
 ## Isolated Interface with `cozo_db` Module
@@ -1303,6 +1401,10 @@ specifications[^cozoscript-specifications] are freely available and
 can be easily converted to something Erlang compatible with
 `leex`[^erlang-leex] and `yecc`[^erlang-yecc].
 
+An interface to `qlc`[^erlang-qlc] could also be really
+helpful. Creating a similar interface than the one already offered by
+ETS and Mnesia could be a great feature as well.
+
 Finally, `erlang_nif.c` is not tested against memory leaks and other
 kind of C related issues. It should be planned to create test suites
 and analyze this part of the code with Valgrind[^valgrind]. Error
@@ -1319,6 +1421,7 @@ experience.
 [^erlang-leex]: [https://www.erlang.org/doc/man/leex](https://www.erlang.org/doc/man/leex)
 [^erlang-yecc]: [https://www.erlang.org/doc/man/yecc](https://www.erlang.org/doc/man/yecc)
 [^valgrind]: [https://valgrind.org/](https://valgrind.org/)
+[erlang-qlc]: [https://www.erlang.org/doc/man/qlc.html](https://www.erlang.org/doc/man/qlc.html)
 
 ## Conclusion
 
@@ -1373,7 +1476,10 @@ support.
 *Erlang `mnesia` Reference Manual*,
 [https://www.erlang.org/doc/apps/mnesia/index.html](https://www.erlang.org/doc/apps/mnesia/index.html)
 
+\newpage
 ## ANNEXE A - Manual Building
+
+This procedure has been extracted from github workflow.
 
 ```sh
 git clone https://github.com/cozodb/cozo.git
@@ -1398,6 +1504,7 @@ cargo build -p cozo-bin --release
 ./target/debug/cozo-bin repl
 ```
 
+\newpage
 ## ANNEXE B - Building on OpenBSD
 
 At this time, cozodb does not work on OpenBSD because of missing
@@ -1438,6 +1545,7 @@ cargo add --git https://github.com/Absolucy/nanorand-rs  \
 [^nanorand-rs-pr-40]: [https://github.com/Absolucy/nanorand-rs/pull/40](https://github.com/Absolucy/nanorand-rs/pull/40)
 [^nanorand-rs-commit-1438]: [https://github.com/Absolucy/nanorand-rs/commit/1438c12483b58245a86c87df38e71ca1e023dedc](https://github.com/Absolucy/nanorand-rs/commit/1438c12483b58245a86c87df38e71ca1e023dedc)
 
+\newpage
 ## ANNEXE C - CozoDB Example with C
 
 Here a small text created during the first tests.
@@ -1479,6 +1587,7 @@ int main(int argc, char *argv[]) {
 }
 ```
 
+\newpage
 ## ANNEXE D - SQL Equivalence
 
 Tested with SQLite.
@@ -1537,6 +1646,7 @@ SELECT *
     ON user.name=character.name;
 ```
 
+\newpage
 ## ANNEXE E - Alternative Datalog Implementation
 
 | name | language |
@@ -1557,10 +1667,27 @@ SELECT *
 | [tonsky/datascript](https://github.com/tonsky/datascript)       | Clojure |
 | [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
 
+\newpage
 ## ANNEXE F - Unit testing, Dialyzer, and Coverage
 
-TODO
+Tests and analysis can be executed using make.
 
-## Notes
+```sh
+make test
+make cover
+make dialyzer
+```
 
- - https://www.erlang.org/doc/man/qlc.html#
+For the 0.1.0 release, the coverage is around 70%.
+
+|                  module  |    coverage  |
+|                        -:|            -:|
+|                  `cozo`  |       `76%`  |
+|              `cozo_app`  |        `0%`  |
+|               `cozo_db`  |       `62%`  |
+|              `cozo_nif`  |       `72%`  |
+|              `cozo_sup`  |        `0%`  |
+|                 `total`  |       `70%`  |
+
+All exported functions are specified and a bunch of types were
+created.
