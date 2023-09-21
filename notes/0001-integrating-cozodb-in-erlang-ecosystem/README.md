@@ -722,7 +722,7 @@ ok = cozo_nif:close(DbId3).
 ok = cozo_nif:close(DbId4).
 ```
 
-### Generic Interface with `cozo` Module
+## Generic Interface with `cozo` Module
 
 Types and data-structures are defined in
 
@@ -803,7 +803,7 @@ cozo:list_columns(Db, "").
 ok = cozo:close(Db).
 ```
 
-### Isolated Interface with `cozo_db` Module
+## Isolated Interface with `cozo_db` Module
 
 `cozo_db` was created to isolate a database behind an Erlang process
 and linearize the queries and answers. The idea is to offer an easy
@@ -833,13 +833,16 @@ everything was working correctly. This tutorial used with `cozo` and
 ## Future Improvements
 
 Using Cozoscript to execute queries on CozoDB is enough if you want to
-create a simple interface to users wanting their own isolated
-environment using something already documented and
-tested. Unfortunately, this feature is hard to integrate *correctly*
-with Erlang, and by *correcty* I mean creating a request and get back
-a result with Erlang terms. In fact, creates something similar to
-Match Specifications[^erlang-match-specification] in Erlang. Something
-similar can be found in clojure datahike[^datahike] database.
+create a simple user interface. Users will have their own isolated
+environment using something already documented and tested.
+
+Unfortunately, this feature is hard to integrate *correctly* with
+Erlang, and by *correcty* I mean creating a request and get back a
+result with Erlang terms. In fact, it is possible to create something
+similar to Match Specifications[^erlang-match-specification] in
+Erlang. Datahike[^datahike] project written in Clojure, for example,
+did the same and the first version of Mnesia (called Amnesia) was
+designed with this constraint in mind[^erlang-amnesia].
 
 To accomplish something like this, a new interface using Rust[^rust]
 and Rustler[^rustler] with `cozo-core`[^cozo-core] should be used
@@ -860,6 +863,7 @@ and analyze this part of the code with Valgrind[^valgrind].
 
 [^erlang-match-specification]: [https://www.erlang.org/doc/apps/erts/match_spec.html](https://www.erlang.org/doc/apps/erts/match_spec.html)
 [^datahike]: [https://github.com/replikativ/datahike](https://github.com/replikativ/datahike)
+[^erlang-amnesia]: [https://amnesia.sourceforge.net/user_manual/manual.html](https://amnesia.sourceforge.net/user_manual/manual.html)
 [^rust]: [https://www.rust-lang.org/](https://www.rust-lang.org/)
 [^rustler]: [https://docs.rs/crate/rustler](https://docs.rs/crate/rustler)
 [^cozo-core]: [https://github.com/cozodb/cozo/tree/main/cozo-core](https://github.com/cozodb/cozo/tree/main/cozo-core)
@@ -1043,6 +1047,4 @@ int main(int argc, char *argv[]) {
 | [rust-lang/datafrog](https://github.com/rust-lang/datafrog)     | Rust    |
 | [replikativ/datahike](https://github.com/replikativ/datahike)   | Clojure |
 
-
- - https://amnesia.sourceforge.net/user_manual/manual.html
  - https://www.erlang.org/doc/man/qlc.html#
