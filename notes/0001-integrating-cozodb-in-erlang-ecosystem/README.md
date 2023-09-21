@@ -7,20 +7,31 @@ author: Mathieu Kerjouan
 keywords: [cozo,cozodb,erlang,otp,datalog]
 license: CC BY-NC-ND
 abstract: |
-  Erlang/OTP has been created with an incredible toolbox,
-  including different application to store data. `ETS`, an in-memory
-  Erlang term storage used as cache; `DETS`, an long term on disk
-  storage facility based on ETS and finally, `Mnesia`, a database using
-  `ETS` and `DETS` to create distributed DBMS. These applications are
-  not external projects but are delivered by default with each
-  releases. Erlang community is also providing some alternative, in
-  particular with RocksDB. In this paper, an integration of CozoDB
-  v0.7.2 is presented using its C interface called `libcozo_c`.
 
-  In the vast world of database, SQL is probably the most standardized,
-  advanced and used language around the world to deal with relation
-  between data. This is not the only one though and few alternative like
-  Prolog or Datalog exist.
+  Erlang/OTP has been created with an incredible toolbox, including
+  different application to store data. `ETS`, an in-memory Erlang term
+  storage used as cache; `DETS`, an long term on disk storage facility
+  based on ETS and finally, `Mnesia`, a database using `ETS` and
+  `DETS` to create fully distributed *DBMS*.
+
+  All these applications are not coming from obscure external projects
+  but are *de facto* delivered by default with each Erlang/OTP
+  releases. Thus, Erlang community is also providing some great
+  alternatives, in particular with the famous *Riak* or with the
+  integration of *RocksDB* -- an high performance database created by
+  *Facebook*.
+
+  Those solutions are unfortunatelly nothing in regard of SQL. This
+  standard is probably the most used and advanced languages when
+  dealing with relation between data but this is not the only
+  one. Indeed, SQL was greatly inspired by *Prolog* and *Datalog*, two
+  languages made in the 70's, created and designed to easily creates
+  data and build relation between them.
+
+  In this paper, an integration of CozoDB *v0.7.2* -- a database using
+  a Datalog dialect -- is presented using its C interface called
+  `libcozo_c`.
+
 ---
 
 ## Introduction
@@ -41,13 +52,14 @@ abstract: |
 > been applied to problems in data integration, networking, program
 > analysis, and more.[^datalog-wikipedia]
 
-Datalog is greatly inspired from Prolog, and because many Datalog
-implementation are not free and open-source, I will try to explain the
-concept behind Datalog using Prolog. When programming with Logic
-Programming languages like Prolog, a knowledge base is accessible
-during the execution of the program. You can see it as a database
-containing terms for the moment. If you can add terms, you can also
-design them. In the following examples, [SWI
+*Datalog* is greatly inspired from *Prolog*, and because many
+*Datalog* implementation are not free or open-source, this part of the
+article will try to explain the concept behind Datalog using
+*Prolog*. When programming with Logic Programming languages like *Prolog*,
+a *knowledge base* is accessible during the execution of the
+program. You can see it as a database containing terms for the
+moment. If you can add terms, you can also design them. In the
+following examples, [SWI
 Prolog](https://www.swi-prolog.org/)[^swi-prolog] REPL will be used by
 invocaking the command `swipl`.
 
@@ -55,11 +67,11 @@ invocaking the command `swipl`.
 swipl
 ```
 
-Say you want to store users into your knowledge based. An user is
-defined by its name, its age and its password. An entry is called a
+Say someone wants to store users into the *knowledge based*. An user
+is defined by its name, its age and its password. An entry is called a
 fact, and we can add new one using
 [`assert/1`](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)[^prolog-assert/1]
-followed by the definition of a new fact. Let adds three new user,
+followed by the definition of a new *fact*. Let adds three new user,
 *John Smith*, *Bill Kill* and *Luke Skywalker*.
 
 ```prolog
@@ -68,7 +80,7 @@ assert(user("Bill Kill", 57, "Beatrix")).
 assert(user("Luke Skywalker", 24, "IHateBranda")).
 ```
 
-Directly from the REPL, you can easily extract the password by
+Directly from the *REPL*, one can easily extract the password by
 creating a query using `user/3` predicate composed by the name of the
 user as a static value, an empty variable and a named variable called
 `Password`. This last will return the content of the password field
@@ -79,7 +91,7 @@ user("John Smith", _, Password).
 % Password = "Strong Password"
 ```
 
-More than one facts have been added into the knowledge base, and using
+More than one *facts* have been added into the knowledge base, and using
 [`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3]
 predicate, we can easily extract all the user name from it.
 
@@ -88,7 +100,7 @@ findall(Name, user(Name, _, _), Xs).
 % Xs = ["John Smith", "Bill Kill", "Luke Skywalker"].
 ```
 
-A guard can also be used to used to filter result and extract the
+A *guard* can also be used to used to filter result and extract the
 wanted data.
 
 ```prolog
@@ -131,10 +143,11 @@ assert(character("Bill Kill", male, bad)).
 assert(character("Luke Skywalker", male, good)).
 ```
 
-We can easily merge both table together using `findall/3`. Indeed,
-this is equivalent to join in SQL, elements from user and character
-predicates are now combined on the same data-structure, using name as
-primary key.
+We can easily merge both table together using
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3]. Indeed,
+this is equivalent to *join* in *SQL*, elements from user and
+character predicates are now combined on the same data-structure,
+using name as primary key.
 
 ```prolog
 findall( {Name, Age, Sex, Type}
@@ -257,19 +270,19 @@ transaction[^prolog-transaction] can be used instead.
 > perfect as the long-term memory for LLMs and
 > AI.[^cozo-official-website]
 
-CozoDB is a modern Datalog system supporting in-memory, sqlite and
-rocksdb storage. Written in Rust, it offers also a command-line
-interface called `cozo-bin`, a C library called `cozo-lib-c` or
-`libcozo_c`, a Java library called `cozo-lib-java`, a NodeJS library
-called `cozo-lib-nodejs`, and two others for python called
-`cozo-lib-python` and for swift called `cozo-lib-swift`. CozoDB can
-also be compiled as web assembly library with the project
+CozoDB is a modern *Datalog* system supporting *in-memory*, *sqlite*
+and *rocksdb* back-end storage. Written in Rust, it offers also a
+command-line interface called `cozo-bin`, a C library called
+`cozo-lib-c` or `libcozo_c`, a Java library called `cozo-lib-java`, a
+NodeJS library called `cozo-lib-nodejs`, and two others for python
+called `cozo-lib-python` and for swift called `cozo-lib-swift`. CozoDB
+can also be compiled as web assembly library with the project
 `cozo-lib-wasm`.
 
-CozoDB offers a scripting language called Cozoscript to interact with
-the database. The syntax is inspired from Prolog and Datalog, but with
-many differences. The scripts in this paragraph can easily be executed
-on any modern web browsers in the [*CozoDB
+CozoDB offers a scripting language called *Cozoscript* to interact
+with the database. The syntax is inspired from *Prolog* and *Datalog*,
+but with many differences. The scripts in this paragraph can easily be
+executed on any modern web browsers in the [*CozoDB
 Playground*](https://www.cozodb.org/wasm-demo/)[^cozodb-playground].
 
 Let create something similar than the example created with prolog
@@ -496,9 +509,9 @@ line, a relation is made using `name` field.
 
 | stratum | `rule_idx` | `rule` | `atom_idx` | `op`                   | `ref`     | `joins_on`       | `filters/expr`                | `out_relation` |
 |      -: |         -: |     -: |         -: |                  ----: |       --: |             ---: |                         ----: | ----: |
-| 0       | 0          | `"?"`  | `3`        | `"load_stored"`        | `":tag"`  | `null`           | `["eq(name, \"Bill Kill\")"]` | `["name", "tag"]` |
+| 0       | 0          | `"?"`  | `3`        | `"load_stored"`        | `":tag"`  | `null`           | `["eq(name, \"Bill Kill\") "]` | `["name", "tag"]` |
 | 0       | 0          | `"?"`  | `2`        | `"load_stored"`        | `":user"` | `null`           | `[]`                          | `["**0", "age", "password"]` |
-| 0       | 0          | `"?"`  | `1`        | `"stored_prefix_join"` | `null`    | `{"name":"**0"}` | `null`                        | `["name", "tag", "age"]` |
+| 0       | 0          | `"?"`  | `1`        | `"stored_prefix_join"` | `null`    | `{ "name": "**0" }` | `null`                        | `["name", "tag", "age"]` |
 | 0       | 0          | `"?"`  | `0`        | `"out"`                | `null`    | `null`           | `null`                        | `["name", "tag", "age"]` |
 
 `<-` is in fact a syntactic sugar made to simplify the use of the
@@ -511,10 +524,6 @@ tutorial](https://docs.cozodb.org/en/latest/tutorial.html)[^cozodb-tutorial].
 [^cozodb-tutorial]: [https://docs.cozodb.org/en/latest/tutorial.html](https://docs.cozodb.org/en/latest/tutorial.html)
 
 ## CozoDB Interface with `libcozo_c`
-
- - [ ] build `cozo` project and `libcozo_c` library
- - [ ] describe `libcozo_c` interfaces
- - [ ] describe `Makefile` and make command facility
 
 `libcozo_c` is a compatible C interface to CozoDB. A release is
 available on the official CozoDB Github repository but it can be
@@ -972,10 +981,14 @@ This function will return a tuple containing with a JSON parsed
 result.
 
 ```erlang
-{ok,#{<<"headers">> => [<<"_0">>,<<"_1">>,<<"_2">>],
-      <<"next">> => null,<<"ok">> => true,
-      <<"rows">> => [[1,2,3]],
-      <<"took">> => 0.01818754}}
+{ok, #{
+  <<"headers">> => [<<"_0">>,<<"_1">>,<<"_2">>],
+  <<"next">> => null,
+  <<"ok">> => true,
+  <<"rows">> => [[1,2,3]],
+  <<"took">> => 0.01818754
+  }
+}
 ```
 
 The previous command is equivalent to the one below, where default
@@ -990,20 +1003,28 @@ commands. A new relation can be created using `:create` command.
 
 ```erlang
 cozo:run(Db, ":create test { key: String, value: String }").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 0.038191377}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 0.038191377
+%   }
+% }
 ```
 
 Rows can also be added as well with `:put` command.
 
 ```erlang
 cozo:run(Db, "?[key, value] <- [['key','value']] :put test {key, value}").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 0.039636681}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 0.039636681
+%   }
+% }
 ```
 
 Finally, stored rows on `test` *relation* can be extracted as well.
@@ -1088,10 +1109,14 @@ back.
 {ok, DbRestore} = cozo:open().
 {ok, _} = cozo:restore(DbRestore, "/tmp/data.dump").
 cozo:run(4, "?[key, value] := *test{key, value}").
-% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"key">>,<<"value">>]],
-%       <<"took">> => 1.97193e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"key">>,<<"value">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"key">>,<<"value">>]],
+%   <<"took">> => 1.97193e-4
+%   }
+% }
 ```
 
 Another way to do a restore is to use `cozo:import_backup/2`. This
@@ -1133,16 +1158,28 @@ function, still returned as map structure from JSON object.
 
 ```erlang
 {ok, Relations} = cozo:list_relations(Db).
-% {ok,#{<<"headers">> =>
-%           [<<"name">>,<<"arity">>,<<"access_level">>,<<"n_keys">>,
-%            <<"n_non_keys">>,<<"n_put_triggers">>,<<"n_rm_triggers">>,
-%            <<"n_replace_triggers">>,<<"description">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> =>
-%           [[<<"managing_relation3">>,3,<<"normal">>,3,0,0,0,0,<<>>],
-%            [<<"managing_relations">>,2,<<"normal">>,1,1,0,0,0,<<>>],
-%            [<<"managing_relations2">>,2,<<"normal">>,1,1,0,0,0,<<>>]],
-%       <<"took">> => 6.6139e-5}}
+% {ok, #{
+%   <<"headers">> => [
+%     <<"name">>,
+%     <<"arity">>,
+%     <<"access_level">>,
+%     <<"n_keys">>,
+%     <<"n_non_keys">>,
+%     <<"n_put_triggers">>,
+%     <<"n_rm_triggers">>,
+%     <<"n_replace_triggers">>,
+%     <<"description">>
+%   ],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [
+%     [<<"managing_relation3">>,3,<<"normal">>,3,0,0,0,0,<<>>],
+%     [<<"managing_relations">>,2,<<"normal">>,1,1,0,0,0,<<>>],
+%     [<<"managing_relations2">>,2,<<"normal">>,1,1,0,0,0,<<>>]
+%   ],
+%   <<"took">> => 6.6139e-5
+%   }
+% }
 ```
 
 Finally, relations can be removed using `cozo:delete_relation/2` or
@@ -1150,16 +1187,24 @@ Finally, relations can be removed using `cozo:delete_relation/2` or
 
 ```erlang
 {ok, _} = cozo:delete_relation(Db, "managing_relation3").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%      <<"took">> => 2.21824e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 2.21824e-4
+%   }
+% }
 
 {ok, _} = cozo:delete_relations(Db, ["managing_relations", "managing_relations2"]).
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 5.7769e-5}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 5.7769e-5
+%   }
+% }
 ```
 
 Other functions like `cozo:replace_relation/3`, `cozo:put_row/3`,
@@ -1190,14 +1235,24 @@ All indexes can be listed on a *relation* using `cozo:list_indices/2`.
 
 ```erlang
 {ok, _} = cozo:list_indices(Db, "managing_index").
-% {ok,#{<<"headers">> =>
-%          [<<"name">>,<<"type">>,<<"relations">>,<<"config">>],
-%      <<"next">> => null,<<"ok">> => true,
-%      <<"rows">> =>
-%          [[<<"index">>,<<"normal">>,
-%            [<<"managing_index:index">>],
-%            #{<<"indices">> => [0]}]],
-%      <<"took">> => 7.0669e-5}}
+% {ok, #{
+%   <<"headers">> => [
+%     <<"name">>,
+%     <<"type">>,
+%     <<"relations">>,
+%     <<"config">>
+%   ],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [
+%     [ <<"index">>,<<"normal">>,
+%       [<<"managing_index:index">>],
+%       #{<<"indices">> => [0]}
+%     ]
+%   ],
+%   <<"took">> => 7.0669e-5
+%   }
+% }
 ```
 
 Finally, an index can also be removed using `cozo:delete_index/2`
@@ -1205,10 +1260,14 @@ function.
 
 ```erlang
 {ok, _} = cozo:delete_index(Db, "managing_index:index").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 8.5379e-5}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 8.5379e-5
+%   }
+% }
 ```
 
 ### Managing Triggers
@@ -1227,16 +1286,24 @@ Two relations are created, `store` will received new data and
 
 ```erlang
 {ok, _} = cozo:create_relation(Db, "store", "key => value").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 1.12455e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 1.12455e-4
+%   }
+% }
 
 {ok, _} = cozo:create_relation(Db, "replica", "key => value").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 1.16418e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 1.16418e-4
+%   }
+% }
 ```
 
 Trigger's name must reflect the name of the `relation`. In this case,
@@ -1245,13 +1312,17 @@ data and put them in `replica`.
 
 ```erlang
 Trigger = "on put { "
-  "?[key,value] := _new[key,value]" 
+  "?[key,value] := _new[key,value]"
   ":put replica{k,v} }".
 {ok, _} = cozo:set_triggers(Db, "store", Trigger).
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 1.5311e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 1.5311e-4
+%   }
+% }
 ```
 
 To be sure each relations are empty, a query can be executed with
@@ -1259,14 +1330,24 @@ To be sure each relations are empty, a query can be executed with
 
 ```erlang
 {ok, _} = cozo:run(Db, "?[key, value] := *store[key, value]").
-% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
-%       <<"next">> => null,<<"ok">> => true,<<"rows">> => [],
-%       <<"took">> => 1.81164e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"key">>,<<"value">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [],
+%   <<"took">> => 1.81164e-4
+%   }
+% }
 
 {ok, _} = cozo:run(Db, "?[key, value] := *replace[key, value]").
-% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
-%       <<"next">> => null,<<"ok">> => true,<<"rows">> => [],
-%       <<"took">> => 1.69025e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"key">>,<<"value">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [],
+%   <<"took">> => 1.69025e-4
+%   }
+% }
 ```
 
 When inserting new data into `store` relation, they are replicated
@@ -1274,34 +1355,50 @@ into `replica` *relation* as well.
 
 ```erlang
 cozo:run(Db, "?[key, value] <- [[1,2],[2,3]] :put store{key, value}").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 6.91881e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 6.91881e-4
+%   }
+% }
 
 cozo:run(Db, "?[key, value] := *store[key, value]").
-% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[1,2],[2,3]],
-%       <<"took">> => 6.1221e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"key">>,<<"value">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[1,2],[2,3]],
+%   <<"took">> => 6.1221e-4
+%   }
+% }
 
 cozo:run(Db, "?[key, value] := *replica[key, value]").
-% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[1,2],[2,3]],
-%       <<"took">> => 3.38856e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"key">>,<<"value">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[1,2],[2,3]],
+%   <<"took">> => 3.38856e-4
+%   }
+% }
 ```
 
 Triggers can be checked using `cozo:get_triggers/2`.
 
 ```erlang
 {ok, _ } = cozo:get_triggers(Db, "store").
-% {ok,#{<<"headers">> => [<<"type">>,<<"idx">>,<<"trigger">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> =>
-%           [[<<"put">>,0,
-%             <<"?[key,value] := _new[key,value]; :put replica{key,value} ">>]],
-%       <<"took">> => 4.8507e-5}}
+% {ok,#{
+%   <<"headers">> => [<<"type">>,<<"idx">>,<<"trigger">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [
+%   [<<"put">>,0,
+%    <<"?[key,value] := _new[key,value]; :put replica{key,value} ">>]],
+%   <<"took">> => 4.8507e-5
+%   }
+% }
 ```
 
 Finally, triggers can be reset or deleted using
@@ -1309,10 +1406,14 @@ Finally, triggers can be reset or deleted using
 
 ```erlang
 {ok, _} = cozo:delete_triggers(Db, "store").
-% {ok,#{<<"headers">> => [<<"status">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"OK">>]],
-%       <<"took">> => 1.38564e-4}}
+% {ok, #{
+%   <<"headers">> => [<<"status">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"OK">>]],
+%   <<"took">> => 1.38564e-4
+%   }
+% }
 ```
 
 ### Extra features
@@ -1324,28 +1425,49 @@ releases. Columns definition can be listed using
 
 ```erlang
 {ok, _ } = cozo:list_columns(Db, "managing_index").
-% {ok,#{<<"headers">> =>
-%           [<<"column">>,<<"is_key">>,<<"index">>,<<"type">>,
-%            <<"has_default">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> =>
-%           [[<<"key">>,true,0,<<"Any?">>,false],
-%            [<<"value">>,false,1,<<"Any?">>,false]],
-%       <<"took">> => 6.2358e-5}}
+% {ok, #{
+%   <<"headers">> => [
+%     <<"column">>,
+%     <<"is_key">>,
+%     <<"index">>,
+%     <<"type">>,
+%     <<"has_default">>
+%   ],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [
+%     [<<"key">>,true,0,<<"Any?">>,false],
+%     [<<"value">>,false,1,<<"Any?">>,false]
+%   ],
+%   <<"took">> => 6.2358e-5
+%   }
+% }
 ```
 
 Queries can also be explained using `cozo:explain/2`.
 
 ```erlang
 cozo:explain(Db, "?[] <- [[1,2,3]]").
-% {ok,#{<<"headers">> =>
-%           [<<"stratum">>,<<"rule_idx">>,<<"rule">>,<<"atom_idx">>,
-%            <<"op">>,<<"ref">>,<<"joins_on">>,<<"filters/expr">>,
-%            <<"out_relation">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> =>
-%           [[0,0,<<"?">>,0,<<"algo">>,null,null,null,null]],
-%       <<"took">> => 1.43279e-4}}
+% {ok, #{
+%   <<"headers">> => [
+%     <<"stratum">>,
+%     <<"rule_idx">>,
+%     <<"rule">>,
+%     <<"atom_idx">>,
+%     <<"op">>,
+%     <<"ref">>,
+%     <<"joins_on">>,
+%     <<"filters/expr">>,
+%     <<"out_relation">>
+%   ],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [
+%     [0,0,<<"?">>,0,<<"algo">>,null,null,null,null]
+%   ],
+%   <<"took">> => 1.43279e-4
+%   }
+% }
 ```
 
 ## Isolated Interface with `cozo_db` Module
@@ -1355,14 +1477,48 @@ and linearize queries and answers. The idea is to offer an easy way to
 synchronize and distribute queries in a cluster environment. All
 interfaces are similar than the ones defined in `cozo` module.
 
+`cozo_db:open/0`, `cozo_db:open/1`, `cozo_db:open/2` functions are
+wrapper around `cozo_db:start/1` and are following the same principles
+than `open` functions from `cozo` module.
+
 ```erlang
-{ok, Db} = cozo_db:new().
+{ok, Db} = cozo_db:open().
+{ok, _} = cozo_db:run(Db, "?[] <- [[1,2,3]]").
 ok = cozo_db:close(Db).
+```
 
-{ok, DbMonitored} = cozo_db:start_monitor().
+`cozo_db` was created with `gen_statem`[^erlang-gen_statem] *behavior*
+and export some `start_*` functions to start it. All these functions
+are sharing the options structure defined as `proplist`.
+
+```erlang
+Opts = [
+  {engine, mem},
+  {db_path, "/tmp"},
+  {db_filename_prefix, "cozodb_server_"},
+  {path, "database_name.db"},
+  {options, #{}}
+].
+```
+
+`cozo_db:start/1` starts just a `gen_statem` process.
+
+```erlang
+{ok, Db} = cozo_db:start(Opts).
+ok = cozo_db:stop(Db).
+```
+
+`cozo_db:start_monitor/1` starts a monitored `gen_statem` process.
+
+```erlang
+{ok, DbMonitored} = cozo_db:start_monitor(Opts).
 ok = cozo_db:stop(DbMonitored).
+```
 
-{ok, DbLinked} = cozo_db:start_link().
+`cozo_db:start_link/1` starts a linked `gen_statem` process.
+
+```erlang
+{ok, DbLinked} = cozo_db:start_link(Opts).
 ok = cozo_db:stop(DbLinked).
 ```
 
@@ -1372,13 +1528,15 @@ everything was working correctly. This tutorial used with `cozo` and
 `cozo_db` modules were created using
 `common_test`[^erlang-common_test].
 
-[^erlang-common_test]: [https://www.erlang.org/doc/man/common_test.html#](https://www.erlang.org/doc/man/common_test.html)
+[^erlang-common_test]: [https://www.erlang.org/doc/man/common_test.html](https://www.erlang.org/doc/man/common_test.html)
+[^erlang-gen_statem]: [https://www.erlang.org/doc/man/gen_statem.html](https://www.erlang.org/doc/man/gen_statem.html)
 
 ## Future Improvements
 
-Using Cozoscript to execute queries on CozoDB is enough if you want to
-create a simple user interface. Users will have their own isolated
-environment using something already documented and tested.
+Using *Cozoscript* to execute queries on CozoDB is enough if one wants
+to create a simple user interface or a proof of concept. Users will
+have their own isolated environment using something already documented
+and tested.
 
 Unfortunately, this feature is hard to integrate *correctly* with
 Erlang, and by *correcty* I mean creating a request and get back a
@@ -1395,7 +1553,7 @@ but should offer a better integration with Erlang, by letting this
 langage generating CozoDB bytecode.
 
 Another improvement, perhaps before doing bytecode compilation from
-Erlang to CozoDB, is to create a fully compatible Cozoscript
+Erlang to CozoDB, is to create a fully compatible *Cozoscript*
 implementation in pure Erlang. Indeed, the
 specifications[^cozoscript-specifications] are freely available and
 can be easily converted to something Erlang compatible with
@@ -1403,7 +1561,7 @@ can be easily converted to something Erlang compatible with
 
 An interface to `qlc`[^erlang-qlc] could also be really
 helpful. Creating a similar interface than the one already offered by
-ETS and Mnesia could be a great feature as well.
+*ETS* and *Mnesia* could be a great feature as well.
 
 Finally, `erlang_nif.c` is not tested against memory leaks and other
 kind of C related issues. It should be planned to create test suites
@@ -1436,7 +1594,6 @@ specified. Many more modifications need to be done to make this module
 ready for production, but the current implementation can be used for
 testing and perhaps proof of concepts. If interested to help or want
 to be involved in this project, don't hesitate to contact me.
-
 
 Special thanks to Alejandro M. Ramallo[^alejandro-m-ramallo-github]
 who shared this project idea with me and was here to add MacOS
@@ -1488,16 +1645,18 @@ git checkout v0.7.2
 cargo build -p cozo --release --verbose
 ```
 
-```
-# release build:
-file target/release/cozo-bin
-file target/release/libcozo_c.so
-file target/release/libcozo_embedded.so
+Built release can be found in `target/release`:
 
-# debug build:
-file target/debug/libcozo_c.so
-file target/debug/libcozo_embedded.so
-```
+ - `target/release/cozo-bin`
+ - `target/release/libcozo_c.so`
+ - `target/release/libcozo_embedded.so`
+
+Built debug can be found in `target/debug`:
+
+ - `target/debug/libcozo_c.so`
+ - `target/debug/libcozo_embedded.so`
+
+To start a new REPL can be executed with `cozo-bin`.
 
 ```sh
 cargo build -p cozo-bin --release
