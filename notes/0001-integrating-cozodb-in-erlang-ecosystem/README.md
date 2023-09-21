@@ -1049,15 +1049,21 @@ from JSON object with the rows and the headers of the *relation*.
 ```erlang
 Payload = #{ <<"relations">> => [<<"test">>] },
 {ok, Result} = cozo:export_relations(Db, Payload).
-% {ok, #{ <<"data">> =>
-%         #{ <<"test">> =>
-%            #{ <<"headers">> => [<<"key">>,<<"value">>],
-%               <<"next">> => null,
-%               <<"rows">> => [[<<"key">>,<<"value">>]]
-%             }
-%          },
-%         <<"ok">> => true
-%       }
+% {ok, #{
+%   <<"data">> => #{
+%     <<"test">> => #{
+%       <<"headers">> => [
+%         <<"key">>,
+%         <<"value">>
+%       ],
+%       <<"next">> => null,
+%       <<"rows">> => [
+%         [<<"key">>,<<"value">>]
+%       ]
+%     }
+%   },
+%   <<"ok">> => true
+%  }
 % }
 ```
 
@@ -1068,7 +1074,10 @@ the field `<<"data">>`and reinject them.
 ```erlang
 #{ <<"data">> := Import } = Result.
 {ok, _} = cozo:import_relations(Db, Import).
-% {ok,#{<<"ok">> => true}}
+% {ok, #{
+%   <<"ok">> => true
+%   }
+% }
 ```
 
 This part needs to be improved, creating maps data-structure without
