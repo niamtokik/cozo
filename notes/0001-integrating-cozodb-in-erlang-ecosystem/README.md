@@ -16,7 +16,7 @@ abstract: |
   releases. Erlang community is also providing some alternative, in
   particular with RocksDB. In this paper, an integration of CozoDB
   v0.7.2 is presented using its C interface called `libcozo_c`.
-  
+
   In the vast world of database, SQL is probably the most standardized,
   advanced and used language around the world to deal with relation
   between data. This is not the only one though and few alternative like
@@ -47,8 +47,9 @@ concept behind Datalog using Prolog. When programming with Logic
 Programming languages like Prolog, a knowledge base is accessible
 during the execution of the program. You can see it as a database
 containing terms for the moment. If you can add terms, you can also
-design them. In the following examples, SWI Prolog [^swi-prolog] REPL
-will be used by invocaking the command `swipl`.
+design them. In the following examples, [SWI
+Prolog](https://www.swi-prolog.org/)[^swi-prolog] REPL will be used by
+invocaking the command `swipl`.
 
 ```sh
 swipl
@@ -56,7 +57,8 @@ swipl
 
 Say you want to store users into your knowledge based. An user is
 defined by its name, its age and its password. An entry is called a
-fact, and we can add new one using `assert/1`[^prolog-assert/1]
+fact, and we can add new one using
+[`assert/1`](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)[^prolog-assert/1]
 followed by the definition of a new fact. Let adds three new user,
 *John Smith*, *Bill Kill* and *Luke Skywalker*.
 
@@ -78,23 +80,26 @@ user("John Smith", _, Password).
 ```
 
 More than one facts have been added into the knowledge base, and using
-`findall/3`[^prolog-findall/3] predicate, we can easily extract all
-the user name from it.
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3]
+predicate, we can easily extract all the user name from it.
 
 ```prolog
 findall(Name, user(Name, _, _), Xs).
 % Xs = ["John Smith", "Bill Kill", "Luke Skywalker"].
 ```
 
-Filtering using guards can also be done.
+A guard can also be used to used to filter result and extract the
+wanted data.
 
 ```prolog
 findall(Name, (user(Name, Age, _), Age>40), Xs).
 % Xs = ["John Smith", "Bill Kill"].
 ```
 
-Creating more complex data-structures by composing data from facts is
-also possible.
+It's also possible to create more complex data-structures by composing
+data together from facts return by
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3).
+
 
 ```prolog
 findall({Name, Password}, (user(Name, Age, Password)), Xs).
@@ -103,7 +108,7 @@ findall({Name, Password}, (user(Name, Age, Password)), Xs).
 %     ,{"Luke Skywalker", "IHateBranda"}].
 ```
 
-Finally, if you want to extract all facts from the database, it's also
+Extract the whole database or all predicates from the database is also
 an easy task.
 
 ```prolog
@@ -115,9 +120,10 @@ findall( user(Name, Age, Password)
 %      ,user("Luke Skywalker", 24, "IHateBranda")].
 ```
 
-How to deal with information coming from another *table* and join
-them? Let create a new collection of elements, outside of the scope of
-the user predicate.
+A predicate can be extended, but it will probably have many side
+effects on the whole interfaces used by developers. In fact, it is
+also possible to extend a predicate by creating a new one containing
+an explicit reference to the old one.
 
 ```prolog
 assert(character("John Smith", male, bad)).
@@ -125,7 +131,10 @@ assert(character("Bill Kill", male, bad)).
 assert(character("Luke Skywalker", male, good)).
 ```
 
-We can easily merge both table together using `findall/3`.
+We can easily merge both table together using `findall/3`. Indeed,
+this is equivalent to join in SQL, elements from user and character
+predicates are now combined on the same data-structure, using name as
+primary key.
 
 ```prolog
 findall( {Name, Age, Sex, Type}
@@ -137,7 +146,8 @@ findall( {Name, Age, Sex, Type}
 %      ,{"Luke Skywalker", 24, male, good}].
 ```
 
-Great but what about a more complex relationship?
+More complex relationship can also be created. A `tag` predicate can
+be created where one user can have many tags.
 
 ```prolog
 assert(tag("John Smith", "Matrix")).
@@ -149,8 +159,9 @@ assert(tag("Luke Skywalker", "Jedi")).
 assert(tag("Luke Skywalker", "Light Saber")).
 ```
 
-Based on the previous call, we can list user names and their tags, but
-it will give you lot of repetition.
+Based on the previous call, we can list user name and their tags, but
+it will give you lot of repetition. One user should have zero to many
+tags, the best data-structure to answer this issue is a list.
 
 ```prolog
 findall( {Name, Tag}
@@ -168,20 +179,27 @@ What we want is a join.
 ```prolog
 assert(
   user_tags(Name, Tags) :-
-    findall(Tag, (user(Name, _,_), tag(Name, Tag)), Tags)
+    findall( Tag
+           , ( user(Name, _,_)
+             , tag(Name, Tag))
+           , Tags)
 ).
-user_tags("Jedi", "Light Saber").
+% user_tags("Jedi", "Light Saber").
 ```
 
 ```prolog
-% or with aggregate_all
 assert(
   user_tags(Name, Tags) :-
-    aggregate_all(set(Tag)
-                 ,(user(Name,_,_), tag(Name, Tag))
-                 ,Tags)
+    aggregate_all( set(Tag)
+                 , ( user(Name,_,_)
+                   , tag(Name, Tag))
+                 , Tags)
 ).
 ```
+
+[`aggregate/3`](https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3)[^prolog-aggregate/3]
+predicate can be coupled with
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3].
 
 ```prolog
 % tags per users
@@ -189,7 +207,8 @@ assert(
   users_tags(Result) :-
     findall( {Name, Tags}
            , aggregate( set(Tag)
-                      , (user(Name,_,_), tag(Name, Tag))
+                      , ( user(Name,_,_)
+                        , tag(Name, Tag))
                       , Tags)
            , Result)
 ).
@@ -201,15 +220,18 @@ users_tags(Xs).
 %       ].
 ```
 
-To remove one or more entry, `retract/1`[^prolog-retract/1] can be
-used.
+To remove one or more entry,
+[`retract/1`](https://www.swi-prolog.org/pldoc/doc_for?object=retract/1)[^prolog-retract/1]
+can be used.
 
 ```prolog
 retract(user("Bill Kill", X, _).
 % X = 42
 ```
 
-To purge all data, `abolish/1`[^prolog-abolish/2] can be used.
+To purge all data,
+[`abolish/1`](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)[^prolog-abolish/2]
+can be used.
 
 ```prolog
 abolish(user, 3).
@@ -226,6 +248,7 @@ transaction[^prolog-transaction] can be used instead.
 [^prolog-abolish/2]: [https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)
 [^prolog-transaction]: [https://www.swi-prolog.org/pldoc/man?section=transactions](https://www.swi-prolog.org/pldoc/man?section=transactions)
 [^datalog-wikipedia]: [https://en.wikipedia.org/wiki/Datalog](https://en.wikipedia.org/wiki/Datalog)
+[^prolog-aggregate/3]: [https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3](https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3)
 
 ## A Quick Overview of CozoDB
 
@@ -245,13 +268,16 @@ also be compiled as web assembly library with the project
 
 CozoDB offers a scripting language called Cozoscript to interact with
 the database. The syntax is inspired from Prolog and Datalog, but with
-many differences.
+many differences. The scripts in this paragraph can easily be executed
+on any modern web browsers in the [*CozoDB
+Playground*](https://www.cozodb.org/wasm-demo/)[^cozodb-playground].
 
 Let create something similar than the example created with prolog
-using cozodb. To create a relation in cozoscript the `:create`
-function is used, followed by the name of the relation and its
-spec. The fields before the arrow are the primary key, in this case,
-`name`.
+using cozodb. *Relation* is the name used to define a *table* in
+cozodb, and can be created using `:create` followed by two arguments,
+the first one is the name of the relation and then the specification
+of each columns. Relations `user` and `character` are defined in code
+below.
 
 ```cozoscript
 :create user {
@@ -262,8 +288,6 @@ spec. The fields before the arrow are the primary key, in this case,
 }
 ```
 
-`character` relation.
-
 ```cozoscript
 :create character {
   name: String,
@@ -273,7 +297,11 @@ spec. The fields before the arrow are the primary key, in this case,
 }
 ```
 
-`tag` relation.
+The arrow `=>` separates the primary key from standard one. All
+columns are typed and can be set as `Null`, `Bool`, `Number` (`Int` or
+`Float`), `String`, `Bytes`, `Uuid`, `List`, `Vector`, `Json` or
+`Validity`. Without an arrow `=>` all the keys are consired primary,
+like in the `tag` relation definition.
 
 ```cozoscript
 :create tag {
@@ -282,10 +310,14 @@ spec. The fields before the arrow are the primary key, in this case,
 }
 ```
 
-Same can be execute once using multi-transaction syntax.
+All the previous code presented must be executed one at a time. If
+someone want to execute in a specific order and in the same session,
+each queries must be isolated in command blocks, enclosed in curly
+brackets (`{` and `}`). A multiline query must start with a space.
+
 
 ```cozoscript
-{
+ {
   :create user {
     name: String,
     =>
@@ -293,8 +325,7 @@ Same can be execute once using multi-transaction syntax.
     password: String
   }
 }
-
-{
+ {
   :create character {
     name: String,
     =>
@@ -303,43 +334,53 @@ Same can be execute once using multi-transaction syntax.
   }
 }
 
-{
+ {
   :create tag {
     name: String,
     tag: String
   }
 }
-
 ```
 
-These relations can be listing using `::relations` system operator.
+CozoDB offers also few commands to manage the database. To return the
+list of created *relations*, `::relations` system command can be used.
 
 ```cozoscript
 ::relations
 ```
 
-| `name`    | `arity` | `access_levpel` | `n_keys` | `n_non_keys` | `n_put_triggers` | `n_rm_triggers` | `n_replace_triggers` | `description` |
-| :-        | - | -     | - | - | - | - | - | - |
-| character | 3 | normal | 1 | 2 | 0 | 0 | 0 |
-| tag       | 2 | normal | 2 | 0 | 0 | 0 | 0 |
-| user      | 3 | normal | 1 | 2 | 0 | 0 | 0 |
+It will return a complete description of each *relations*.
 
-Columns can be listing using `::columns` system operator.
+| `name`        | `arity`        | `access_ levpel` | `n_ keys` | `n_ non_ keys` | `n_ put_ triggers` | `n_ rm_ triggers` | `n_ replace_ triggers` | `description` |
+| :-            | - | -          | - | - | - | - | - | - |
+| `"character"` | `3` | `"normal"` | `1` | `2` | `0` | `0` | `0` | `""`
+| `"tag"`       | `2` | `"normal"` | `2` | `0` | `0` | `0` | `0` | `""`
+| `"user"`      | `3` | `"normal"` | `1` | `2` | `0` | `0` | `0` | `""`
+
+Same can be done for all *columns* defined in a *relation* with the
+help of `::colums` system command.
 
 ```cozoscript
 ::columns user
 ```
 
-| `column` | `is_key` | `index` | `type` | `has_default` |
-| :-       | -        | -       | -      | -             |
-| name     | true     | 0       | String | false         |
-| age      | false    | 1       | Int    | false         |
-| password | false    | 2       | String | false         |
+Another table is returned, but this time with the description of each
+*columns*.
 
-Data injection.
+| `column`     | `is_key`   | `index`   | `type`   | `has_default` |
+| :-           | -          | -         | -        | -             |
+| `"name"`     | `true`     | `0`       | `String` | `false`       |
+| `"age"`      | `false`    | `1`       | `Int`    | `false`       |
+| `"password"` | `false`    | `2`       | `String` | `false`       |
+
+
+Data can be injected in *relations* with `:put` command. A list of raw
+data is serialized as list and then matched on the left side of the
+query. Elements are then pushed into the wanted *relation* using
+`:put`.
 
 ```cozoscript
-{
+ {
   ?[name, age, password] <- [
     ['John Smith', 42, 'StrongPassword'],
     ['Bill Kill', 57, 'Beatrix'],
@@ -347,8 +388,7 @@ Data injection.
   ]
   :put user { name => age, password }
 }
-
-{
+ {
   ?[name, sex, alignment] <- [
     ['John Smith', 'male', 'bad'],
     ['Bill Kill', 'male', 'bad'],
@@ -356,8 +396,7 @@ Data injection.
   ]
   :put character { name => sex, alignment }
 }
-
-{
+ {
   ?[name, tag] <- [
     ['John Smith', 'Matrix'],
     ['John Smith', 'Glasses'],
@@ -371,11 +410,22 @@ Data injection.
 }
 ```
 
-List all data from `user` relation
+All data stored in a relation can be listed using a *query* composed
+in two parts. An inline rule can be used here, the part on the left
+will extract the data from the right part following the `:=` operator.
 
 ```cozoscript
 ?[name, age, password] := *user[name, age, password]
 ```
+
+| name               | age | password           |
+|                 -: |  -: |                 -: |
+| `"Bill Kill"`      |  57 |        `"Beatrix"` |
+| `"John Smith"`     |  42 | `"StrongPassword"` |
+| `"Luke Skywalker"` |  24 |    `"IHateBrenda"` |
+
+This query can be analyzed and explained using `::explain` command. It
+will return each step of executions.
 
 ```cozoscript
 ::explain { ?[name] := *user[name, age, password] }
@@ -383,26 +433,41 @@ List all data from `user` relation
 
 | `stratum` | `rule_idx` | `rule` | `atom_idx` | `op` | `ref` | `joins_on` | `filters/expr` | `out_relation` |
 | - | - | - | - | ---         | --    | --   | --   | ---                           |
-| 0 | 0 | ? | 1 | load_stored | :user | null | []   | `["name", "age", "password"]` |
-| 0 | 0 | ? | 0 | out         | null  | null | null | `["name"]` |
+| `0` | `0` | `?` | `1` | `load_stored` | `:user` | `null` | `[]`   | `["name", "age", "password"]` |
+| `0` | `0` | `?` | `0` | `out`         | `null`  | `null` | `null` | `["name"]` |
+
+Let prints out the content of `character` *relation*...
 
 ```cozoscript
 ?[name, sex, alignment] := *character[name, sex, alignment]
 ```
 
-| name           | sex  | alignment |
-| :-             | -    | -         |
-| Bill Kill      | male | bad       |
-| John Smith     | male | bad       |
-| Luke Skywalker | make | good      |
+| name               | sex      | alignment |
+| :-                 | -        | -         |
+| `"Bill Kill"`      | `"male"` | `"bad"`   |
+| `"John Smith"`     | `"male"` | `"bad"`   |
+| `"Luke Skywalker"` | `"male"` | `"good"`  |
+
+... and the content of `tag` one.
 
 ```cozoscript
 ?[name, tag] := *tag[name, tag]
 ```
 
 | name | tag |
-| -    | -   |
-|      |     |
+|   -: | -: |
+|      `"Bill Kill"` | `"Five Fingers Death Punch"` |
+|      `"Bill Kill"` |                   `"Katana"` |
+|     `"John Smith"` |                  `"Glasses"` |
+|     `"John Smith"` |                  `"Machine"` |
+|     `"John Smith"` |                   `"Matrix"` |
+| `"Luke Skywalker"` |                     `"Jedi"` |
+| `"Luke Skywalker"` |              `"Light Saber"` |
+
+The most interesting part now is to join them together using a guard
+at the end of the query. The following code will join `tag` and `user`
+relation together by unifying `name` present in both *relations*. A
+filter is also added to only return the user called `Bill Kill`.
 
 ```cozoscript
 ?[name, tag, age] := *tag[name, tag],
@@ -410,10 +475,14 @@ List all data from `user` relation
                      name == 'Bill Kill'
 ```
 
-| name | tag |
-| -    | -   |
-| Bill Kill | Five Fingers Death Punch | 57 |
-| Bill Kill | Katana                   | 57 |
+The result shows how boths relations have been merged.
+
+| name | tag | age |
+|   -: | -: |  -: |
+| `"Bill Kill"` | `"Five Fingers Death Punch"` | `"57"` |
+| `"Bill Kill"` |                   `"Katana"` | `"57"` |
+
+This query can be explain by using, again, `::explain` command.
 
 ```cozoscript
 ::explain { ?[name, tag, age] := *tag[name, tag],
@@ -422,7 +491,24 @@ List all data from `user` relation
 }
 ```
 
+Table returned is more complex than the previous ones. On the third
+line, a relation is made using `name` field.
+
+| stratum | `rule_idx` | `rule` | `atom_idx` | `op`                   | `ref`     | `joins_on`       | `filters/expr`                | `out_relation` |
+|      -: |         -: |     -: |         -: |                  ----: |       --: |             ---: |                         ----: | ----: |
+| 0       | 0          | `"?"`  | `3`        | `"load_stored"`        | `":tag"`  | `null`           | `["eq(name, \"Bill Kill\")"]` | `["name", "tag"]` |
+| 0       | 0          | `"?"`  | `2`        | `"load_stored"`        | `":user"` | `null`           | `[]`                          | `["**0", "age", "password"]` |
+| 0       | 0          | `"?"`  | `1`        | `"stored_prefix_join"` | `null`    | `{"name":"**0"}` | `null`                        | `["name", "tag", "age"]` |
+| 0       | 0          | `"?"`  | `0`        | `"out"`                | `null`    | `null`           | `null`                        | `["name", "tag", "age"]` |
+
+`<-` is in fact a syntactic sugar made to simplify the use of the
+curly tail `<~` denoting a fixed rule but that's another level of
+complexity someone interested can check directly on the [official
+tutorial](https://docs.cozodb.org/en/latest/tutorial.html)[^cozodb-tutorial].
+
 [^cozo-official-website]: [https://www.cozodb.org/](https://www.cozodb.org/)
+[^cozodb-playground]: [https://www.cozodb.org/wasm-demo/](https://www.cozodb.org/wasm-demo/)
+[^cozodb-tutorial]: [https://docs.cozodb.org/en/latest/tutorial.html](https://docs.cozodb.org/en/latest/tutorial.html)
 
 ## CozoDB Interface with `libcozo_c`
 
@@ -447,15 +533,17 @@ fetch the right version currently supported.
 make deps
 ```
 
-`ei.h` C header is required.
+`ei.h`[^erlang-ei] and `erl_nif.h`[^erlang-erl_nif] C headers are both
+required.
 
 ```c
 #include <ei.h>
-```
-
-```c
 #include <erl_nif.h>
 ```
+
+`cozo_c.h`[^erlang-cozo_c.h] is present in `c_src` directory but can be
+automatically fetched and upgraded using `make deps` if this file is
+not present.
 
 ```c
 #include "cozo_c.h"
@@ -465,7 +553,7 @@ Because this implementation is using an external library, the
 definition of each exported functions from this one needs to be
 created prefixed with the keyword `extern` meaning "external
 references" outside of the scope of this program. It's basically a
-copy/paste from `cozo_c.h ` prototypes.
+copy/paste from `cozo_c.h` prototypes.
 
 ```c
 extern void cozo_free_str(char *s);
@@ -481,9 +569,14 @@ extern char *cozo_restore(int32_t db_id, const char *in_path);
 extern char *cozo_import_from_backup(int32_t db_id, const char *json_payload);
 ```
 
-`ERL_NIF_INIT` macro is needed to generate other internal functions
-and configure the NIF correctly. The first argument is the name of the
-module called `cozo_nif` here, and ...
+`ERL_NIF_INIT`[^erlang-ERL_NIF_INIT] macro is needed to generate other
+internal functions and configure the NIF correctly. The first argument
+is the name of the module called `cozo_nif`, following the name of the
+C function `nif_funcs` returning references to the interface to
+CozoDB. All other arguments are disabled, but represent the function
+used when loading the library, next argument is ignored, the fifth
+argument is a function called when an upgrade is made and the last one
+when this module is unloaded.
 
 ```c
 ERL_NIF_INIT(cozo_nif,nif_funcs,NULL,NULL,NULL,NULL)
@@ -493,8 +586,7 @@ The list of functions and their mapping on the Erlang side is defined
 in `ErlNifFunc`. 8 functions are exported.
 
 ```c
-static ErlNifFunc nif_funcs[] =
-  {
+static ErlNifFunc nif_funcs[] = {
    {"open_db_nif", 3, open_db},
    {"close_db_nif", 1, close_db},
    {"run_query_nif", 4, run_query},
@@ -503,26 +595,31 @@ static ErlNifFunc nif_funcs[] =
    {"backup_db_nif", 2, backup_db},
    {"restore_db_nif", 2, restore_db},
    {"import_backup_db_nif", 2, import_backup_db}
-  };
+};
 ```
 
-`atom_ok()` function creates an atom `ok`.
+`atom_ok()` and `atom_error()` functions have been created to help
+generating atoms using `enif_make_atom()`[^erlang-enif_make_atom],
+returning respectively the atom `ok` for the first one and the atom
+`error` for the last one.
 
 ```c
 ERL_NIF_TERM atom_ok(ErlNifEnv *env) {
   const char* atom = "ok";
   return enif_make_atom(env, atom);
 }
-```
 
-`atom_error()` function creates an atom `error`.
-
-```c
 ERL_NIF_TERM atom_error(ErlNifEnv *env) {
   const char* atom = "error";
   return enif_make_atom(env, atom);
 }
 ```
+
+[^erlang-ei]: [https://www.erlang.org/doc/man/ei.html](https://www.erlang.org/doc/man/ei.html)
+[^erlang-erl_nif]: [https://www.erlang.org/doc/man/erl_nif.html](https://www.erlang.org/doc/man/erl_nif.html)
+[^erlang-cozo_c.h]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h)
+[^erlang-ERL_NIF_INIT]: [https://www.erlang.org/doc/man/erl_nif.html#initialization](https://www.erlang.org/doc/man/erl_nif.html#initialization)
+[^erlang-enif_make_atom]: [https://www.erlang.org/doc/man/erl_nif#enif_make_atom](https://www.erlang.org/doc/man/erl_nif#enif_make_atom)
 
 ### `open_db` function
 
@@ -534,7 +631,9 @@ static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 ```
 
 The first part of the code extract the length of each strings from
-Erlang.
+Erlang with `enif_get_string_length()`[^erlang-enif_get_string_length]
+function. In case of failure, the function return a `badarg` atom with
+the help of function `enif_make_badarg()`[^erlang-enif_make_badarg].
 
 ```c
   unsigned int engine_length;
@@ -546,15 +645,18 @@ Erlang.
   if (!enif_get_string_length(env, argv[1], &path_length, ERL_NIF_UTF8)) {
     return enif_make_badarg(env);
   }
-  
+
   unsigned int options_length;
   if (!(enif_get_string_length(env, argv[2], &options_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
 
-Extract the engine string, only "mem", "sqlite" and "rocksdb" are
-supported.
+No error so far in the code, then the *engine* string can be extracted
+with `enif_get_string()`[^erlang-enif_get_string] function. This must
+be a C string and it should be terminated by `\0` but a `\n` do the
+job. `mem`, `sqlite` and `rocksdb` are the only engine supported for
+the moment. In case of failure a `badarg` atom is returned.
 
 ```c
   // extract the engine string
@@ -564,47 +666,59 @@ supported.
   }
 ```
 
-Extract the path string, a valid and existing path from the
-filesystem.
+The *path* and *engine options* are extracted using the same
+process. *path* argument must be a valid path and *engine option* must
+be a string containing a valid JSON object.
 
 ```c
   char *path = enif_alloc(path_length);
   if (!(enif_get_string(env, argv[1], path, path_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
-```
 
-Extract the engine options, a valid JSON object.
-
-```c
   char *options = enif_alloc(options_length);
   if (!(enif_get_string(env, argv[2], options, options_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
 
-Create the database and return its idea in case of success, else
-returns an error with the reason "open_error".
+An integer is allocated to store the future database id generated by
+`cozo_open_db()` function. In case of success, this identifier is
+returned in a classical Erlang *tuple*, where the first element is an
+`ok` atom and the second one an integer created using
+`enif_make_int()`[^erlang-enif_make_int], converting `db_id` in an
+Erlang integer term.
+
+
 
 ```c
   int db_id;
   if (!cozo_open_db(engine, path, options, &db_id)) {
     return enif_make_tuple2(env, atom_ok(env), enif_make_int(env, db_id));
   }
-  return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "open_error"));  
+  return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "open_error"));
 }
 ```
 
+[^erlang-enif_get_string_length]: [https://www.erlang.org/doc/man/erl_nif#enif_get_string_length](https://www.erlang.org/doc/man/erl_nif#enif_get_string_length)
+[^erlang-enif_make_badarg]: [https://www.erlang.org/doc/man/erl_nif#enif_make_badarg](https://www.erlang.org/doc/man/erl_nif#enif_make_badarg)
+[^erlang-enif_get_string]: [https://www.erlang.org/doc/man/erl_nif#enif_get_string](https://www.erlang.org/doc/man/erl_nif#enif_get_string)
+[^erlang-enif_make_int]: [https://www.erlang.org/doc/man/erl_nif#enif_make_int](https://www.erlang.org/doc/man/erl_nif#enif_make_int)
 [^libcozo-opendb]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23)
 
 ### `close_db` function
 
-`close_db()` function is an interface to
-`cozo_close_db()`[^libcozo-close].
+An opened database must be closed if not used anymore. `close_db()`
+function is an interface to `cozo_close_db()`[^libcozo-close] to deal
+with this part of the library.
 
 ```c
 static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 ```
+
+Database identifier is fetched from arguments with the help of
+`enif_get_int()`[^erlang-enif_get_int] function and stored in `db_id`
+variable. As usual, in case of failure, `badarg` is returned.
 
 ```c
   int db_id;
@@ -612,6 +726,9 @@ static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_badarg(env);
   }
 ```
+
+`cozo_close_db()` function is then called and in case of success, only
+`ok` atom is returned.
 
 ```c
   bool close_result = cozo_close_db(db_id);
@@ -620,21 +737,31 @@ static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
   }
 ```
 
+In case of failure though, a tuple containing `error` atom and the
+atom `close_error` is being returned.
+
 ```c
   return enif_make_tuple2(env, atom_error(env), enif_make_atom(env, "close_error"));
 }
 ```
 
+[^erlang-enif_get_int]: [https://www.erlang.org/doc/man/erl_nif#enif_get_int](https://www.erlang.org/doc/man/erl_nif#enif_get_int)
 [^libcozo-close]: [https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L37](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L37)
 
 ### `run_query` function
 
-`run_query()` function is an interface to
+When a database is opened and active, queries can be executed. A query
+is a string composed of characters and following cozoscript
+syntax. `run_query()` function is an interface to
 `cozo_run_query()`[^libcozo-runquery].
 
 ```c
 static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 ```
+
+An opened database is identified by an integer, this one is fetched
+from the arguments passed to the function in `env` variable and then
+stored in `db_id` variable.
 
 ```c
   int db_id;
@@ -643,19 +770,25 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
   }
 ```
 
+Both cozoscript and parameters are strings. Their length must be
+extracted using `enif_get_string_length()` function and in case of
+failure returning `badarg` atom.
+
 ```c
   unsigned int script_raw_length;
   if (!enif_get_string_length(env, argv[1], &script_raw_length, ERL_NIF_UTF8)) {
     return enif_make_badarg(env);
   }
-```
 
-```c
   unsigned int params_raw_length;
   if (!enif_get_string_length(env, argv[2], &params_raw_length, ERL_NIF_UTF8)) {
     return enif_make_badarg(env);
   }
 ```
+
+The immutable flag is fetched as integer with `enif_get_int()`
+function. In fact, a `bool` might have done the job. This value is
+stored in `immutable` variable using `enif_get_int()` function.
 
 ```c
   int immutable;
@@ -664,32 +797,49 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
   }
 ```
 
+Cozoscript and parameters are then extracted with `enif_get_string()`
+function and respectively stored in `script_raw` dans `params_raw`
+variables.
+
 ```c
   char *script_raw = enif_alloc(script_raw_length);
   if (!(enif_get_string(env, argv[1], script_raw, script_raw_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
-```
 
-```c
   char *params_raw = enif_alloc(params_raw_length);
   if (!(enif_get_string(env, argv[2], params_raw, params_raw_length, ERL_NIF_UTF8))) {
     return enif_make_badarg(env);
   }
 ```
 
+The query is now ready to be executed with `cozo_run_query()`
+function. The first argument is the database identifier, the second
+one the script, the third one is for parameters and finally the last
+one for the mutability of the database.
+
 ```c
   char *cozo_result = cozo_run_query(db_id, script_raw, params_raw,
                                      immutable ? true : false);
 ```
 
+A result is returned as string and needs to be converted as an Erlang
+term with `enif_make_string()` function.
+
 ```c
   ERL_NIF_TERM result_string = enif_make_string(env, cozo_result, ERL_NIF_UTF8);
 ```
 
+`cozo_free_str` must be called to free up the space allocated by the
+result of the function, this value is not needed anymore because it
+was converted as Erlang term and previously stored in `result_string`
+variable.
+
 ```c
   cozo_free_str(cozo_result);
 ```
+
+Finally, the result is returned with an `ok` atom in a tuple.
 
 ```c
   return enif_make_tuple2(env, atom_ok(env), result_string);
@@ -700,7 +850,11 @@ static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
 ## Low Level Interface with `cozo_nif` Module
 
- - [ ] describe `cozo_nif` module
+`cozo_nif` Erlang module is a low level interface to `cozo_nif`
+library. It offers two differents way to call this NIF, one is used to
+help developers to debug their applications and the second one (all
+function postfixed with `_nif`) is directly a raw access to the low
+level functions.
 
 ```erlang
 {ok, DbId} = cozo_nif:new().
@@ -724,7 +878,15 @@ ok = cozo_nif:close(DbId4).
 
 ## Generic Interface with `cozo` Module
 
-Types and data-structures are defined in
+`cozo` Erlang module is a friendly interface and probably the main one
+to CozoDB. The idea is to offer an high level abstraction to the NIF
+with a big part of the feature directly integrated there. Lot of
+functions are exported to help developers to deal with the database.
+
+### Types and Record
+
+This module (and others) are trying hard to be fully specified, types
+and data-structures are defined in `include/cozo.hrl`.
 
 ```erlang
 -type db_id()         :: 0 | pos_integer().
@@ -745,36 +907,66 @@ Types and data-structures are defined in
 -type cozo() :: #cozo{ db_parent :: undefined | db_parent() }.
 ```
 
+### Generic Operations
+
+A new active database can be opened with `cozo:open/0`, `cozo:open/1`,
+`cozo:open/2` and `cozo:open/3` functions. These functions are
+returning the previously defined record containing all important
+information regarding this database.
+
 ```erlang
-{ok, Db} = cozo:new().
+{ok, Db} = cozo:open().
 ```
+
+Many accessors have been created to extract data from `cozo` record,
+like `cozo:get_id/1`, `cozo:get_options/1`, `cozo:get_path` or
+`cozo:get_engine/1`.
 
 ```erlang
 0 = cozo:get_id(Db).
+DbOptions = cozo:get_options(Db).
+DbPath = cozo:get_path(Db).
+DbEngine = cozo:get_engine(Db).
 ```
 
-```erlang
-cozo:get_options(Db).
-```
 
 ```erlang
-cozo:get_engine(Db).
+ok = cozo:close(Db).
 ```
+
+### Running Queries
+
+At this time, the library only offer a simple cozoscript interface to
+CozoDB using mainly an Erlang string with `cozo:run/*` functions.
 
 ```erlang
 cozo:run("").
 ```
+
+### Importing and Exporting Relations
+
+*Relations* can be exported and imported.
 
 ```erlang
 cozo:import_relations(Db, "").
 cozo:export_relations(Db, "").
 ```
 
-```
+### Database Backups and Restoration
+
+An active database can have backups, and those backups can be restored
+and imported.
+
+```erlang
 cozo:backup(Db, "").
 cozo:restore(Db, "").
 cozo:import_backup(Db, "").
 ```
+
+### Managing Relations
+
+Most the of the system commands have their own dedicated functions,
+that the case when one needs to deal with *relations*.
 
 ```erlang
 cozo:create_relation(Db, "", "").
@@ -784,23 +976,25 @@ cozo:delete_relation(Db, "").
 cozo:delete_relations(Db, ["", ""]).
 ```
 
+### Managing Indexes
+
 ```erlang
 cozo:create_index(Db, "", "").
 cozo:list_indices(Db, "").
 cozo:delete_index(Db, "").
 ```
 
+### Managing Triggers
+
 ```erlang
 cozo:set_triggers(Db, "").
 cozo:get_triggers(Db, "").
 ```
 
-```erlang
-cozo:list_columns(Db, "").
-```
+### Managing Columns
 
 ```erlang
-ok = cozo:close(Db).
+cozo:list_columns(Db, "").
 ```
 
 ## Isolated Interface with `cozo_db` Module
@@ -859,7 +1053,9 @@ can be easily converted to something Erlang compatible with
 
 Finally, `erlang_nif.c` is not tested against memory leaks and other
 kind of C related issues. It should be planned to create test suites
-and analyze this part of the code with Valgrind[^valgrind].
+and analyze this part of the code with Valgrind[^valgrind]. Error
+messages and guards must also be added to ensure a good programming
+experience.
 
 [^erlang-match-specification]: [https://www.erlang.org/doc/apps/erts/match_spec.html](https://www.erlang.org/doc/apps/erts/match_spec.html)
 [^datahike]: [https://github.com/replikativ/datahike](https://github.com/replikativ/datahike)
@@ -881,7 +1077,11 @@ big trouble. Thus, one the most annoying problem was related to local
 path for C libraries and headers, but this is related to LLVM or GCC
 and the configuration used during this implementation. In less than a
 week, this application was usable, documented, tested and
-specified.
+specified. Many more modifications need to be done to make this module
+ready for production, but the current implementation can be used for
+testing and perhaps proof of concepts. If interested to help or want
+to be involved in this project, don't hesitate to contact me.
+
 
 Special thanks to Alejandro M. Ramallo[^alejandro-m-ramallo-github]
 who shared this project idea with me and was here to add MacOS
@@ -1027,24 +1227,88 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-## ANNEXE D - Alternative Datalog Implementation
+## ANNEXE D - SQL Equivalence
 
-| name | language | 
+Tested with SQLite.
+
+```sql
+CREATE TABLE user (
+  name VARCHAR,
+  age INTEGER,
+  password VARCHAR
+);
+CREATE TABLE character (
+  name VARCHAR,
+  sex VARCHAR,
+  alignment VARCHAR
+);
+CREATE TABLE tag (
+  name VARCHAR,
+  tag VARCHAR,
+  comment VARCHAR
+);
+
+INSERT INTO user (name, age, password)
+     VALUES ('John Smith', 42, 'StrongPassword');
+INSERT INTO user (name, age, password)
+     VALUES ('Bill Kill', 57, 'Beatrix');
+INSERT INTO user (name, age, password)
+     VALUES ('Luke Skywalker', 42, 'IHateBrenda');
+
+INSERT INTO character (name, sex, alignment)
+     VALUES ('John Smith', 'male', 'bad');
+INSERT INTO character (name, sex, alignment)
+     VALUES ('Bill Kill', 'male', 'bad');
+INSERT INTO character (name, sex, alignment)
+     VALUES ('Luke Skywalker', 'male', 'good');
+
+INSERT INTO tag ( name, tag )
+     VALUES ('John Smith', 'Matrix');
+INSERT INTO tag ( name, tag )
+     VALUES ('John Smith', 'Glasses');
+INSERT INTO tag ( name, tag )
+     VALUES ('Bill Kill', 'Katana');
+INSERT INTO tag ( name, tag )
+     VALUES ('Bill Kill', 'Five Fingers Death Punch');
+INSERT INTO tag ( name, tag )
+     VALUES ('Luke Skywalker', 'Jedi');
+INSERT INTO tag ( name, tag )
+     VALUES ('Luke Skywalker', 'Light Saber');
+
+SELECT *
+  FROM user, character
+ WHERE user.name=character.name;
+
+SELECT *
+  FROM user
+  JOIN character
+    ON user.name=character.name;
+```
+
+## ANNEXE E - Alternative Datalog Implementation
+
+| name | language |
 | :-   |       -: |
-| [HarvardPLAbcDatalog](https://github.com/HarvardPL/AbcDatalog)  | Java    |
-| [fogfish/datalog](https://github.com/fogfish/datalog)           | Erlang  |
-| [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
-| [racket/datalog](https://github.com/racket/datalog)             | Racket  |
-| [souffle-lang/souffle](https://github.com/souffle-lang/souffle) | C++     |
-| [ekzhang/crepe](https://github.com/ekzhang/crepe)               | Rust    |
-| [c-cube/datalog](https://github.com/c-cube/datalog)             | Ocaml   |
-| [google/mangle](https://github.com/google/mangle)               | Go      |
-| [dave-nachman/datalog](https://github.com/dave-nachman/datalog) | Python  |
-| [catwell/datalog.lua](https://github.com/catwell/datalog.lua)   | Lua     |
-| [tonsky/datascript](https://github.com/tonsky/datascript)       | Clojure |
-| [EvgSkv/logica](https://github.com/EvgSkv/logica)               | Python  |
+| [EvgSkv/logica](https://github.com/EvgSkv/logica)               |  Python |
+| [HarvardPLAbcDatalog](https://github.com/HarvardPL/AbcDatalog)  |    Java |
+| [c-cube/datalog](https://github.com/c-cube/datalog)             |   Ocaml |
+| [catwell/datalog.lua](https://github.com/catwell/datalog.lua)   |     Lua |
+| [dave-nachman/datalog](https://github.com/dave-nachman/datalog) |  Python |
+| [ekzhang/crepe](https://github.com/ekzhang/crepe)               |    Rust |
+| [fogfish/datalog](https://github.com/fogfish/datalog)           |  Erlang |
+| [google/mangle](https://github.com/google/mangle)               |      Go |
 | [juji-io/datalevin](https://github.com/juji-io/datalevin)       | Clojure |
-| [rust-lang/datafrog](https://github.com/rust-lang/datafrog)     | Rust    |
+| [racket/datalog](https://github.com/racket/datalog)             |  Racket |
 | [replikativ/datahike](https://github.com/replikativ/datahike)   | Clojure |
+| [rust-lang/datafrog](https://github.com/rust-lang/datafrog)     |    Rust |
+| [souffle-lang/souffle](https://github.com/souffle-lang/souffle) |     C++ |
+| [tonsky/datascript](https://github.com/tonsky/datascript)       | Clojure |
+| [travitch/datalog](https://github.com/travitch/datalog)         | Haskell |
+
+## ANNEXE F - Unit testing, Dialyzer, and Coverage
+
+TODO
+
+## Notes
 
  - https://www.erlang.org/doc/man/qlc.html#
