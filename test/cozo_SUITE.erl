@@ -853,7 +853,7 @@ index(Config) ->
 index_fun({Module, Engine}) ->
     {ok, Db} = Module:open(Engine),
     {ok, _} = Module:run(Db, ":create r {a => b}"),
-    {ok, _} = Module:create_index(Db, "r:idx", "{b, a}"),
+    {ok, _} = Module:create_index(Db, "r:idx", "b, a"),
     {ok, _} = Module:list_indices(Db, "r"),
     {ok, _} = Module:delete_index(Db, "r:idx"),
     Module:close(Db).

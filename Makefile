@@ -5,23 +5,6 @@ unexport LDFLAGS
 unexport CFLAGS
 unexport CXXFLAGS
 
-################################################################################
-# GLOBAL Configuration
-################################################################################
-LOCAL_DIR ?= $(shell pwd)
-PRIV_DIR ?= priv
-CSRC_DIR ?= c_src
-CURDIR := $(shell pwd)
-BASEDIR := $(abspath $(CURDIR)/..)
-PROJECT ?= $(notdir $(BASEDIR))
-PROJECT := $(strip $(PROJECT))
-
-BUILD_DIR ?= _build/notes
-NOTES_DIR ?= notes
-NOTES = $(shell ls $(NOTES_DIR) | grep -E "^[0-9]+-")
-PANDOC_OPTS = -C
-PANDOC = pandoc $(PANDOC_OPTS)
-
 ######################################################################
 # template to generate the targets
 ######################################################################
@@ -52,6 +35,23 @@ $$(BUILD_DIR)/$(1).html:
 endef
 
 ################################################################################
+# GLOBAL Configuration
+################################################################################
+LOCAL_DIR ?= $(shell pwd)
+PRIV_DIR ?= priv
+CSRC_DIR ?= c_src
+CURDIR := $(shell pwd)
+BASEDIR := $(abspath $(CURDIR)/..)
+PROJECT ?= $(notdir $(BASEDIR))
+PROJECT := $(strip $(PROJECT))
+
+BUILD_DIR ?= _build/notes
+NOTES_DIR ?= notes
+NOTES = $(shell ls $(NOTES_DIR) | grep -E "^[0-9]+-")
+PANDOC_OPTS = -C
+PANDOC = pandoc $(PANDOC_OPTS)
+
+################################################################################
 # ERTS Configuration
 ################################################################################
 ifdef ASDF_DIR
@@ -70,8 +70,8 @@ endif
 # COZODB Configuration
 ################################################################################
 COZO_REPOSITORY = https://github.com/cozodb/cozo/releases/download
-COZO_VERSION ?= 0.7.2
-COZO_LIB_CHECKSUM ?= 472921fc7a944fe5bdf040aa154cafdd6b23ce6401b4ad96abb9a41747c84df6
+COZO_VERSION ?= 0.7.5
+COZO_LIB_CHECKSUM ?= 2d4ac784ce730180b49d0a9ff09a2cada197802379e15a7d2a7cd03f89316702
 
 # Architecture Auto configuration
 UNAME_M := $(shell uname -m)
@@ -83,8 +83,6 @@ else ifeq ($(UNAME_M), arm64)
 	COZO_LIB_ARCH = aarch64
 else ifeq ($(UNAME_M), armv7l)
 	COZO_LIB_ARCH = armv7
-else
-	$(error "Cozo doesn't support $(UNAME_M) architecture")
 endif
 
 # Operating System Auto Configuration
@@ -97,8 +95,6 @@ else ifeq ($(UNAME_SYS), Linux)
 	COZO_LIB_OS = unknown-linux-gnu
 	COZO_LIBC_EXT = so
 	LDFLAGS = -shared
-else
-	$(error "Cozo does not support $(UNAME_SYS) operating system")
 endif
 
 # Configure checksum based on the os/arch
@@ -154,6 +150,35 @@ $(BUILD_DIR):
 ######################################################################
 $(foreach note,$(NOTES),$(eval $(call pandoc_template,$(note))))
 
+################################################################################
+# Main Targets
+################################################################################
+$(CSRC_DIR)/cozo_c.h:
+	wget -qO $@ $(COZO_HEADER_URL)
+
+$(PRIV_DIR):
+	mkdir $@
+
+$(PRIV_DIR)/$(COZO_LIB_PACKAGE): | $(PRIV_DIR)
+	wget -qO $@ $(COZO_LIB_URL)
+
+$(PRIV_DIR)/$(COZO_LIB_NAME): $(PRIV_DIR)/$(COZO_LIB_PACKAGE)
+	cd $(PRIV_DIR) && gunzip --keep $(COZO_LIB_PACKAGE)
+
+$(PRIV_DIR)/libcozo_c.so: $(PRIV_DIR)/$(COZO_LIB_NAME)
+	cd $(PRIV_DIR) && ln $(COZO_LIB_NAME) libcozo_c.so
+
+$(PRIV_DIR)/cozo_nif.so: $(CSRC_DIR)/cozo_c.h $(PRIV_DIR)/libcozo_c.so
+ifeq ($(UNAME_SYS), Darwin)
+	@# Required for dlopen() to find libcozo_c on macOS.
+	@# Changes the dynamic shared library install name and rpath recorded in the
+	@# binary
+	install_name_tool -id \
+	$(LOCAL_DIR)/$(PRIV_DIR)/libcozo_c.so \
+	$(LOCAL_DIR)/$(PRIV_DIR)/libcozo_c.so
+endif
+	$(CC) c_src/cozo_nif.c $(CC_OPTS) -o $(@)
+
 .PHONY += all
 all: deps compile test cover dialyzer doc
 
@@ -200,33 +225,3 @@ clean-notes:
 	-rm $(NOTES_TARGETS)
 
 .PHONY: $(.PHONY)
-
-################################################################################
-# Main Targets
-################################################################################
-$(CSRC_DIR)/cozo_c.h:
-	wget -qO $@ $(COZO_HEADER_URL)
-
-$(PRIV_DIR):
-	mkdir $@
-
-$(PRIV_DIR)/$(COZO_LIB_PACKAGE): | $(PRIV_DIR)
-	wget -qO $@ $(COZO_LIB_URL)
-
-$(PRIV_DIR)/$(COZO_LIB_NAME): $(PRIV_DIR)/$(COZO_LIB_PACKAGE)
-	cd $(PRIV_DIR) && gunzip --keep $(COZO_LIB_PACKAGE)
-
-$(PRIV_DIR)/libcozo_c.so: $(PRIV_DIR)/$(COZO_LIB_NAME)
-	cd $(PRIV_DIR) && ln $(COZO_LIB_NAME) libcozo_c.so
-
-$(PRIV_DIR)/cozo_nif.so: $(CSRC_DIR)/cozo_c.h $(PRIV_DIR)/libcozo_c.so
-ifeq ($(UNAME_SYS), Darwin)
-	@# Required for dlopen() to find libcozo_c on macOS.
-	@# Changes the dynamic shared library install name and rpath recorded in the
-	@# binary
-	install_name_tool -id \
-	$(LOCAL_DIR)/$(PRIV_DIR)/libcozo_c.so \
-	$(LOCAL_DIR)/$(PRIV_DIR)/libcozo_c.so
-endif
-	$(CC) c_src/cozo_nif.c $(CC_OPTS) -o $(@)
-
