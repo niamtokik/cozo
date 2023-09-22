@@ -70,8 +70,8 @@ endif
 # COZODB Configuration
 ################################################################################
 COZO_REPOSITORY = https://github.com/cozodb/cozo/releases/download
-COZO_VERSION ?= 0.7.2
-COZO_LIB_CHECKSUM ?= 472921fc7a944fe5bdf040aa154cafdd6b23ce6401b4ad96abb9a41747c84df6
+COZO_VERSION ?= 0.7.5
+COZO_LIB_CHECKSUM ?= 2d4ac784ce730180b49d0a9ff09a2cada197802379e15a7d2a7cd03f89316702
 
 # Architecture Auto configuration
 UNAME_M := $(shell uname -m)

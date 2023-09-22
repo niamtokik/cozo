@@ -16,7 +16,7 @@ AI.
 
 ## Support
 
- - [x] `cozodb` 0.7.2 on Linux and MacOS
+ - [x] `cozodb` 0.7.5 on Linux and MacOS
  - [x] `cozo_open_db` with `cozo:open/0` and `cozo:open/2`.
  - [x] `cozo_close_db` with `cozo:close/1`
  - [x] `cozo_run_query` with `cozo:run/2`, `cozo:run/3` and `cozo:run/4`
