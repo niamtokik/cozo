@@ -1,0 +1,4 @@
+%{
+  "cozo": {:git, "https://github.com/niamtokik/cozo.git", "21172a3a1efc7a519137ac6300012df5c7f610ee", [branch: "master"]},
+  "thoas": {:hex, :thoas, "1.0.0", "567c03902920827a18a89f05b79a37b5bf93553154b883e0131801600cf02ce0", [:rebar3], [], "hexpm", "fc763185b932ecb32a554fb735ee03c3b6b1b31366077a2427d2a97f3bd26735"},
+}
