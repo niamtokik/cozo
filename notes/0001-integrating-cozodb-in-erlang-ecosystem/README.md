@@ -29,8 +29,8 @@ abstract: |
   data and build relation between them.
 
   In this paper, an integration of CozoDB *v0.7.2* -- a database using
-  a Datalog dialect -- is presented using its C interface called
-  `libcozo_c`.
+  a *Datalog* dialect and written in Rust-- is presented using its C
+  interface called `libcozo_c`.
 
 ---
 
@@ -42,7 +42,9 @@ abstract: |
 > languages, Prolog is intended primarily as a declarative programming
 > language: the program logic is expressed in terms of relations,
 > represented as facts and rules. A computation is initiated by
-> running a query over these relations.[^prolog-wikipedia]
+> running a query over these relations.
+>
+> -- [Prolog, Wikipedia](https://en.wikipedia.org/wiki/Prolog)[^prolog-wikipedia]
 
 > Datalog is a declarative logic programming language. While it is
 > syntactically a subset of Prolog, Datalog generally uses a bottom-up
@@ -50,58 +52,83 @@ abstract: |
 > significantly different behavior and properties from Prolog. It is
 > often used as a query language for deductive databases. Datalog has
 > been applied to problems in data integration, networking, program
-> analysis, and more.[^datalog-wikipedia]
+> analysis, and more.
+>
+> -- [Datalog, Wikipedia](https://en.wikipedia.org/wiki/Datalog)[^datalog-wikipedia]
 
-*Datalog* is greatly inspired from *Prolog*, and because many
-*Datalog* implementation are not free or open-source, this part of the
-article will try to explain the concept behind Datalog using
-*Prolog*. When programming with Logic Programming languages like *Prolog*,
-a *knowledge base* is accessible during the execution of the
-program. You can see it as a database containing terms for the
-moment. If you can add terms, you can also design them. In the
-following examples, [SWI
-Prolog](https://www.swi-prolog.org/)[^swi-prolog] REPL will be used by
-invocaking the command `swipl`.
+
+*Datalog* is a subset of *Prolog* "extracted" from it in the
+70's. Because many *Datalog* implementation are not free or
+open-source, this part of the article will try to explain the concept
+behind *Datalog* using *Prolog*. Indeed, when programming with Logic
+Programming languages like *Prolog*, a *knowledge base* is accessible
+during the execution of the program. You can see it as a local and
+dynamic database containing terms, that can be modified in Real
+Time. If you can add terms in data-structures, you can even design
+more complex objects having relations and dependency links. In the
+following examples, [SWI Prolog
+7.6.0](https://www.swi-prolog.org/)[^swi-prolog] *REPL* will be used
+by invocaking the command `swipl`.
 
 ```sh
 swipl
 ```
 
-Say someone wants to store users into the *knowledge based*. An user
-is defined by its name, its age and its password. An entry is called a
-fact, and we can add new one using
+Say someone wants to store users into the *knowledge based*. Here, an
+user is defined by its `name`, `age` and `password`. An entry in this
+database is called a *fact* and represent a *clause* returning always
+`true`. Adding a new *fact* can be done using
 [`assert/1`](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)[^prolog-assert/1]
-followed by the definition of a new *fact*. Let adds three new user,
-*John Smith*, *Bill Kill* and *Luke Skywalker*.
+*predicate* followed by the definition of the *fact* itself. Let adds
+a new user called `John Smith`.
+
+Let adds
+three new user, *John Smith*, 
 
 ```prolog
-assert(user("John Smith", 42, "StrongPassword")).
-assert(user("Bill Kill", 57, "Beatrix")).
-assert(user("Luke Skywalker", 24, "IHateBranda")).
+assert(
+  user("John Smith", 42, "StrongPassword") :- true
+).
 ```
 
-Directly from the *REPL*, one can easily extract the password by
-creating a query using `user/3` predicate composed by the name of the
-user as a static value, an empty variable and a named variable called
-`Password`. This last will return the content of the password field
-from the user.
+A *fact* can simply be defined without any *clauses*, it's a better and
+easier method to add them.
+
+```prolog
+assert(
+  user("Bill Kill", 57, "Beatrix")
+).
+assert(
+  user("Luke Skywalker", 24, "IHateBranda")
+).
+```
+
+Directly from the *REPL*, one can easily extract user's `password` by
+creating a query using `user/3` *fact* previously created and composed
+by the name of the user as a static value, an empty variable and a
+named variable called `Password`. This last will return the content of
+the password field from the user.
 
 ```prolog
 user("John Smith", _, Password).
 % Password = "Strong Password"
 ```
 
-More than one *facts* have been added into the knowledge base, and using
+More than one *facts* have been added into the *knowledge base*, and
+with the help of
 [`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3]
-predicate, we can easily extract all the user name from it.
+*predicate*, all users name can be extracted. The first argument is
+defining the returned value, the second argument is a *goal*
+(extracting all names from user *fact*) and finally the last argument
+is a *free variable* where the list of results will be stored.
 
 ```prolog
 findall(Name, user(Name, _, _), Xs).
 % Xs = ["John Smith", "Bill Kill", "Luke Skywalker"].
 ```
 
-A *guard* can also be used to used to filter result and extract the
-wanted data.
+A *guard* composed of *predicates* can also be used to used to filter
+the result and extract a fine grained version of the wanted data.
 
 ```prolog
 findall(Name, (user(Name, Age, _), Age>40), Xs).
@@ -109,9 +136,8 @@ findall(Name, (user(Name, Age, _), Age>40), Xs).
 ```
 
 It's also possible to create more complex data-structures by composing
-data together from facts return by
+data together from *facts* returned by
 [`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3).
-
 
 ```prolog
 findall({Name, Password}, (user(Name, Age, Password)), Xs).
@@ -120,8 +146,8 @@ findall({Name, Password}, (user(Name, Age, Password)), Xs).
 %     ,{"Luke Skywalker", "IHateBranda"}].
 ```
 
-Extract the whole database or all predicates from the database is also
-an easy task.
+Extracting the list of user facts from the database will this
+predicate is also an easy task.
 
 ```prolog
 findall( user(Name, Age, Password)
@@ -132,22 +158,32 @@ findall( user(Name, Age, Password)
 %      ,user("Luke Skywalker", 24, "IHateBranda")].
 ```
 
-A predicate can be extended, but it will probably have many side
-effects on the whole interfaces used by developers. In fact, it is
-also possible to extend a predicate by creating a new one containing
-an explicit reference to the old one.
+A *fact* can be extended, but it will probably have many side effects
+on the whole interfaces used by developers. Thus, it is possible to
+extend a *fact* by creating a new one containing an explicit reference
+to the old one, like a foreign key. The following code creates a new
+fact called `character` where the first argument is an explicite
+reference of the user name present in the fact `user`. In real world
+scenario, an unique identifiant like an integer would have been used
+instead.
 
 ```prolog
-assert(character("John Smith", male, bad)).
-assert(character("Bill Kill", male, bad)).
-assert(character("Luke Skywalker", male, good)).
+assert(
+  character("John Smith", male, bad)
+).
+assert(
+  character("Bill Kill", male, bad)
+).
+assert(
+  character("Luke Skywalker", male, good)
+).
 ```
 
 We can easily merge both table together using
-[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3]. Indeed,
-this is equivalent to *join* in *SQL*, elements from user and
-character predicates are now combined on the same data-structure,
-using name as primary key.
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3]
+predicate. `user` `Name` variable will be unified with `character`
+`Name` and will act like a *join* in *SQL*, both elements from these
+two *facts* will be combined in the same data-structure.
 
 ```prolog
 findall( {Name, Age, Sex, Type}
@@ -159,8 +195,8 @@ findall( {Name, Age, Sex, Type}
 %      ,{"Luke Skywalker", 24, male, good}].
 ```
 
-More complex relationship can also be created. A `tag` predicate can
-be created where one user can have many tags.
+Complex relationship can also be created. For example, a `tag` fact
+can be created where one user can have one or more tags.
 
 ```prolog
 assert(tag("John Smith", "Matrix")).
@@ -172,9 +208,9 @@ assert(tag("Luke Skywalker", "Jedi")).
 assert(tag("Luke Skywalker", "Light Saber")).
 ```
 
-Based on the previous call, we can list user name and their tags, but
-it will give you lot of repetition. One user should have zero to many
-tags, the best data-structure to answer this issue is a list.
+Based on the previous calls to `findall/3` predicate, user name and
+their tags can be listed but it will lead to a lot of repetitive
+fields.
 
 ```prolog
 findall( {Name, Tag}
@@ -187,7 +223,10 @@ findall( {Name, Tag}
 %      ,{"Luke Skywalker", "Jedi"}, {"Luke Skywalker", "Light Saber"}].
 ```
 
-What we want is a join.
+*Prolog* and *Datalog* have more than one types, instead of returning
+repetitive values, a `list` can be used instead What we want is a join
+but let try to create a new clause this time to extract all tags from
+one user.
 
 ```prolog
 assert(
@@ -197,22 +236,32 @@ assert(
              , tag(Name, Tag))
            , Tags)
 ).
-% user_tags("Jedi", "Light Saber").
+
+user_tags("Luke Skywalker", Xs).
+% Xs = ["Jedi", "Light Saber"].
 ```
+
+Another *predicate* called
+[`aggregate/3`](https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3)[^prolog-aggregate/3]
+can be really helpful in this context. Using a `set` it's now possible
+to list all the tags available.
 
 ```prolog
-assert(
-  user_tags(Name, Tags) :-
-    aggregate_all( set(Tag)
-                 , ( user(Name,_,_)
-                   , tag(Name, Tag))
-                 , Tags)
-).
+aggregate_all( set(Tag)
+             , ( user(Name,_,_)
+             , tag(Name, Tag))
+             , Tags).
+% Tags = ["Five Fingers Death Punch", "Glasses", 
+%         "Jedi", "Katana", "Light Saber", 
+%         "Machine", "Matrix"]
 ```
 
+*Predicates* can be coupled together in *rules*,
 [`aggregate/3`](https://www.swi-prolog.org/pldoc/doc_for?object=aggregate/3)[^prolog-aggregate/3]
-predicate can be coupled with
-[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3].
+and
+[`findall/3`](https://www.swi-prolog.org/pldoc/doc_for?object=findall/3)[^prolog-findall/3],
+can then be used to extend/filter those results, and produce a list of
+tags per users, thanks to *Prolog* *unification* feature.
 
 ```prolog
 % tags per users
@@ -235,23 +284,26 @@ users_tags(Xs).
 
 To remove one or more entry,
 [`retract/1`](https://www.swi-prolog.org/pldoc/doc_for?object=retract/1)[^prolog-retract/1]
-can be used.
+*predicate* can be used.
 
 ```prolog
 retract(user("Bill Kill", X, _).
 % X = 42
 ```
 
-To purge all data,
+Finally, to purge all data,
 [`abolish/1`](https://www.swi-prolog.org/pldoc/doc_for?object=abolish/2)[^prolog-abolish/2]
-can be used.
+*predicate* can be used as well.
 
 ```prolog
 abolish(user, 3).
 ```
 
-These previous action on the knowledge base are not safe but
-transaction[^prolog-transaction] can be used instead.
+Previous actions and changes made on the *knowledge base* are not
+safe, dealing with critical data require to use
+[transaction](https://www.swi-prolog.org/pldoc/man?section=transactions)[^prolog-transaction]
+but the final outcome did not change, relationship can be written
+using different concepts and dialects, *Datalog* is one of them.
 
 [^swi-prolog]: [https://www.swi-prolog.org/](https://www.swi-prolog.org/)
 [^prolog-wikipedia]: [https://en.wikipedia.org/wiki/Prolog](https://en.wikipedia.org/wiki/Prolog)
@@ -268,7 +320,9 @@ transaction[^prolog-transaction] can be used instead.
 > A FOSS embeddable, transactional, relational-graph-vector database,
 > across platforms and languages, with time travelling capability,
 > perfect as the long-term memory for LLMs and
-> AI.[^cozo-official-website]
+> AI.
+>
+> -- [CozoDB Official Website](https://www.cozodb.org)[^cozo-official-website]
 
 CozoDB is a modern *Datalog* system supporting *in-memory*, *sqlite*
 and *rocksdb* back-end storage. Written in Rust, it offers also a
@@ -542,17 +596,18 @@ fetch the right version currently supported.
 make deps
 ```
 
-`ei.h`[^erlang-ei] and `erl_nif.h`[^erlang-erl_nif] C headers are both
-required.
+[`ei.h`](https://www.erlang.org/doc/man/ei.html)[^erlang-ei] and
+[`erl_nif.h`](https://www.erlang.org/doc/man/erl_nif.html)[^erlang-erl_nif]
+C headers are both required.
 
 ```c
 #include <ei.h>
 #include <erl_nif.h>
 ```
 
-`cozo_c.h`[^erlang-cozo_c.h] is present in `c_src` directory but can be
-automatically fetched and upgraded using `make deps` if this file is
-not present.
+[`cozo_c.h`](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h)[^erlang-cozo_c.h]
+is present in `c_src` directory but can be automatically fetched and
+upgraded using `make deps` if this file is not present.
 
 ```c
 #include "cozo_c.h"
@@ -578,14 +633,14 @@ extern char *cozo_restore(int32_t db_id, const char *in_path);
 extern char *cozo_import_from_backup(int32_t db_id, const char *json_payload);
 ```
 
-`ERL_NIF_INIT`[^erlang-ERL_NIF_INIT] macro is needed to generate other
-internal functions and configure the NIF correctly. The first argument
-is the name of the module called `cozo_nif`, following the name of the
-C function `nif_funcs` returning references to the interface to
-CozoDB. All other arguments are disabled, but represent the function
-used when loading the library, next argument is ignored, the fifth
-argument is a function called when an upgrade is made and the last one
-when this module is unloaded.
+[`ERL_NIF_INIT`](https://www.erlang.org/doc/man/erl_nif.html#initialization)[^erlang-ERL_NIF_INIT]
+macro is needed to generate other internal functions and configure the
+NIF correctly. The first argument is the name of the module called
+`cozo_nif`, following the name of the C function `nif_funcs` returning
+references to the interface to CozoDB. All other arguments are
+disabled, but represent the function used when loading the library,
+next argument is ignored, the fifth argument is a function called when
+an upgrade is made and the last one when this module is unloaded.
 
 ```c
 ERL_NIF_INIT(cozo_nif,nif_funcs,NULL,NULL,NULL,NULL)
@@ -608,7 +663,8 @@ static ErlNifFunc nif_funcs[] = {
 ```
 
 `atom_ok()` and `atom_error()` functions have been created to help
-generating atoms using `enif_make_atom()`[^erlang-enif_make_atom],
+generating atoms using
+[`enif_make_atom()`](https://www.erlang.org/doc/man/erl_nif#enif_make_atom)[^erlang-enif_make_atom],
 returning respectively the atom `ok` for the first one and the atom
 `error` for the last one.
 
@@ -633,16 +689,19 @@ ERL_NIF_TERM atom_error(ErlNifEnv *env) {
 ### `open_db` function
 
 The first interface implemented was created for
-`cozo_open_db()`[^libcozo-opendb] and called `open_db`.
+[`cozo_open_db()`](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L23)[^libcozo-opendb]
+and called `open_db`.
 
 ```c
 static ERL_NIF_TERM open_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 ```
 
 The first part of the code extract the length of each strings from
-Erlang with `enif_get_string_length()`[^erlang-enif_get_string_length]
+Erlang with
+[`enif_get_string_length()`](https://www.erlang.org/doc/man/erl_nif#enif_get_string_length)[^erlang-enif_get_string_length]
 function. In case of failure, the function return a `badarg` atom with
-the help of function `enif_make_badarg()`[^erlang-enif_make_badarg].
+the help of function
+[`enif_make_badarg()`](https://www.erlang.org/doc/man/erl_nif#enif_make_badarg)[^erlang-enif_make_badarg].
 
 ```c
   unsigned int engine_length;
@@ -662,10 +721,12 @@ the help of function `enif_make_badarg()`[^erlang-enif_make_badarg].
 ```
 
 No error so far in the code, then the *engine* string can be extracted
-with `enif_get_string()`[^erlang-enif_get_string] function. This must
-be a C string and it should be terminated by `\0` but a `\n` do the
-job. `mem`, `sqlite` and `rocksdb` are the only engine supported for
-the moment. In case of failure a `badarg` atom is returned.
+with
+[`enif_get_string()`](https://www.erlang.org/doc/man/erl_nif#enif_get_string)[^erlang-enif_get_string]
+function. This must be a C string and it should be terminated by `\0`
+but a `\n` do the job. `mem`, `sqlite` and `rocksdb` are the only
+engine supported for the moment. In case of failure a `badarg` atom is
+returned.
 
 ```c
   // extract the engine string
@@ -695,8 +756,8 @@ An integer is allocated to store the future database id generated by
 `cozo_open_db()` function. In case of success, this identifier is
 returned in a classical Erlang *tuple*, where the first element is an
 `ok` atom and the second one an integer created using
-`enif_make_int()`[^erlang-enif_make_int], converting `db_id` in an
-Erlang integer term.
+[`enif_make_int()](https://www.erlang.org/doc/man/erl_nif#enif_make_int)`[^erlang-enif_make_int],
+converting `db_id` in an Erlang integer term.
 
 ```c
   int db_id;
@@ -716,16 +777,18 @@ Erlang integer term.
 ### `close_db` function
 
 An opened database must be closed if not used anymore. `close_db()`
-function is an interface to `cozo_close_db()`[^libcozo-close] to deal
-with this part of the library.
+function is an interface to
+[`cozo_close_db()`](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L37)[^libcozo-close]
+to deal with this part of the library.
 
 ```c
 static ERL_NIF_TERM close_db(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 ```
 
 Database identifier is fetched from arguments with the help of
-`enif_get_int()`[^erlang-enif_get_int] function and stored in `db_id`
-variable. As usual, in case of failure, `badarg` is returned.
+[`enif_get_int()`](https://www.erlang.org/doc/man/erl_nif#enif_get_int)[^erlang-enif_get_int]
+function and stored in `db_id` variable. As usual, in case of failure,
+`badarg` is returned.
 
 ```c
   int db_id;
@@ -760,7 +823,7 @@ atom `close_error` is being returned.
 When a database is opened and active, queries can be executed. A query
 is a string composed of characters and following cozoscript
 syntax. `run_query()` function is an interface to
-`cozo_run_query()`[^libcozo-runquery].
+[`cozo_run_query()`](https://github.com/cozodb/cozo/blob/v0.7.2/cozo-lib-c/cozo_c.h#L47)[^libcozo-runquery].
 
 ```c
 static ERL_NIF_TERM run_query(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -1496,9 +1559,10 @@ than `open` functions from `cozo` module.
 ok = cozo_db:close(Db).
 ```
 
-`cozo_db` was created with `gen_statem`[^erlang-gen_statem] *behavior*
-and export some `start_*` functions to start it. All these functions
-are sharing the options structure defined as `proplist`.
+`cozo_db` was created with
+[`gen_statem`](https://www.erlang.org/doc/man/gen_statem.html)[^erlang-gen_statem]
+*behavior* and export some `start_*` functions to start it. All these
+functions are sharing the options structure defined as `proplist`.
 
 ```erlang
 Opts = [
@@ -1535,7 +1599,7 @@ CozoDB team created a pretty nice tutorial, with many use case. This
 was quite useful to test the implementation and have an idea if
 everything was working correctly. This tutorial used with `cozo` and
 `cozo_db` modules were created using
-`common_test`[^erlang-common_test].
+[`common_test`](https://www.erlang.org/doc/man/common_test.html)[^erlang-common_test].
 
 [^erlang-common_test]: [https://www.erlang.org/doc/man/common_test.html](https://www.erlang.org/doc/man/common_test.html)
 [^erlang-gen_statem]: [https://www.erlang.org/doc/man/gen_statem.html](https://www.erlang.org/doc/man/gen_statem.html)
@@ -1550,33 +1614,43 @@ and tested.
 Unfortunately, this feature is hard to integrate *correctly* with
 Erlang, and by *correcty* I mean creating a request and get back a
 result with Erlang terms. In fact, it is possible to create something
-similar to Match Specifications[^erlang-match-specification] in
-Erlang. Datahike[^datahike] project written in Clojure, for example,
-did the same and the first version of Mnesia (called Amnesia) was
-designed with this constraint in mind[^erlang-amnesia].
+similar to [Match
+Specifications](https://www.erlang.org/doc/apps/erts/match_spec.html)[^erlang-match-specification]
+in
+Erlang. [Datahike](https://github.com/replikativ/datahike)[^datahike]
+project written in Clojure, for example, did the same and the first
+version of Mnesia (called
+[Amnesia](https://amnesia.sourceforge.net/user_manual/manual.html))
+was designed with this constraint in mind[^erlang-amnesia].
 
-To accomplish something like this, a new interface using Rust[^rust]
-and Rustler[^rustler] with `cozo-core`[^cozo-core] should be used
-instead of `libcozo_c`. It will require an important amount of work
-but should offer a better integration with Erlang, by letting this
-langage generating CozoDB bytecode.
+To accomplish something like this, a new interface using
+[Rust](https://www.rust-lang.org/)[^rust] and
+[Rustler](https://docs.rs/crate/rustler)[^rustler] with
+[`cozo-core`](https://github.com/cozodb/cozo/tree/main/cozo-core)[^cozo-core]
+should be used instead of `libcozo_c`. It will require an important
+amount of work but should offer a better integration with Erlang, by
+letting this langage generating CozoDB bytecode.
 
 Another improvement, perhaps before doing bytecode compilation from
 Erlang to CozoDB, is to create a fully compatible *Cozoscript*
 implementation in pure Erlang. Indeed, the
-specifications[^cozoscript-specifications] are freely available and
-can be easily converted to something Erlang compatible with
-`leex`[^erlang-leex] and `yecc`[^erlang-yecc].
+[specifications](https://github.com/cozodb/cozo/blob/main/cozo-core/src/cozoscript.pest)[^cozoscript-specifications]
+are freely available and can be easily converted to something Erlang
+compatible with
+[`leex`](https://www.erlang.org/doc/man/leex)[^erlang-leex] and
+[`yecc`](https://www.erlang.org/doc/man/yecc)[^erlang-yecc].
 
-An interface to `qlc`[^erlang-qlc] could also be really
-helpful. Creating a similar interface than the one already offered by
-*ETS* and *Mnesia* could be a great feature as well.
+An interface to
+[`qlc`](https://www.erlang.org/doc/man/qlc.html)[^erlang-qlc] could
+also be really helpful. Creating a similar interface than the one
+already offered by *ETS* and *Mnesia* could be a great feature as
+well.
 
 Finally, `erlang_nif.c` is not tested against memory leaks and other
 kind of C related issues. It should be planned to create test suites
-and analyze this part of the code with Valgrind[^valgrind]. Error
-messages and guards must also be added to ensure a good programming
-experience.
+and analyze this part of the code with
+[Valgrind](https://valgrind.org/)[^valgrind]. Error messages and
+guards must also be added to ensure a good programming experience.
 
 [^erlang-match-specification]: [https://www.erlang.org/doc/apps/erts/match_spec.html](https://www.erlang.org/doc/apps/erts/match_spec.html)
 [^datahike]: [https://github.com/replikativ/datahike](https://github.com/replikativ/datahike)
