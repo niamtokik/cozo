@@ -2,7 +2,7 @@
 
 ![Cozo License](https://img.shields.io/github/license/niamtokik/cozo)
 ![Cozo Top Language](https://img.shields.io/github/languages/top/niamtokik/cozo)
-![Cozo Workflow Status (main branch)](https://img.shields.io/github/actions/workflow/status/niamtokik/cozo/test.yaml?branch=main)
+![Cozo Workflow Status (master branch)](https://img.shields.io/github/actions/workflow/status/niamtokik/cozo/test.yaml?branch=master)
 ![Cozo Last Commit](https://img.shields.io/github/last-commit/niamtokik/cozo)
 ![Cozo Code Size (bytes)](https://img.shields.io/github/languages/code-size/niamtokik/cozo)
 ![Cozo Repository File Count](https://img.shields.io/github/directory-file-count/niamtokik/cozo)
