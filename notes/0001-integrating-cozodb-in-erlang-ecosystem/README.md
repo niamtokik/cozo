@@ -4,7 +4,7 @@ date: 2023-09-13
 title: Integrating CozoDB in Erlang Ecosystem
 subtitle: Mixing NIF Interfaces, CozoDB, Datalog and Erlang Together
 author: Mathieu Kerjouan
-keywords: [cozo,cozodb,erlang,otp,datalog]
+keywords: [cozo,cozodb,erlang,otp,datalog,prolog,relation,database]
 license: CC BY-NC-ND
 abstract: |
 
@@ -33,6 +33,35 @@ abstract: |
   interface called `libcozo_c`.
 
 ---
+
+# Integrating CozoDB in Erlang Ecosystem
+
+## Mixing NIF Interfaces, CozoDB, Datalog and Erlang Together
+
+Erlang/OTP has been created with an incredible toolbox, including
+different application to store data. `ETS`, an in-memory Erlang term
+storage used as cache; `DETS`, an long term on disk storage facility
+based on ETS and finally, `Mnesia`, a database using `ETS` and `DETS`
+to create fully distributed *DBMS*.
+
+All these applications are not coming from obscure external projects
+but are *de facto* delivered by default with each Erlang/OTP
+releases. Thus, Erlang community is also providing some great
+alternatives, in particular with the famous *Riak* or with the
+integration of *RocksDB* -- an high performance database created by
+*Facebook*.
+
+Those solutions are unfortunatelly nothing in regard of SQL. This
+standard is probably the most used and advanced languages when dealing
+with relation between data but this is not the only one. Indeed, SQL
+was greatly inspired by *Prolog* and *Datalog*, two languages made in
+the 70's, created and designed to easily creates data and build
+relation between them.
+
+In this paper, an integration of CozoDB *v0.7.2* -- a database using a
+*Datalog* dialect and written in Rust-- is presented using its C
+interface called `libcozo_c`.
+
 
 ## Introduction
 
@@ -81,9 +110,6 @@ database is called a *fact* and represent a *clause* returning always
 [`assert/1`](https://www.swi-prolog.org/pldoc/doc_for?object=assert/1)[^prolog-assert/1]
 *predicate* followed by the definition of the *fact* itself. Let adds
 a new user called `John Smith`.
-
-Let adds
-three new user, *John Smith*, 
 
 ```prolog
 assert(
@@ -997,7 +1023,7 @@ opened.
 A new active database can be opened with `cozo:open/0`, `cozo:open/1`,
 `cozo:open/2` and `cozo:open/3` functions. These functions are
 returning the previously defined record containing all important
-information regarding this database.
+information regarding the newly opened database.
 
 ```erlang
 {ok, Db} = cozo:open().
@@ -1033,15 +1059,15 @@ ok = cozo:close(Db).
 
 ### Running Queries
 
-At this time, the library only offer a simple cozoscript interface to
-CozoDB using mainly an Erlang string with `cozo:run/*` functions.
+At this time, the library only offer a simple *Cozoscript* interface
+to CozoDB using mainly an Erlang string with `cozo:run/*` functions.
 
 ```erlang
 cozo:run(3, "?[] <- [[1,2,3]]").
 ```
 
-This function will return a tuple containing with a JSON parsed
-result.
+This function will return a tuple containing a JSON parsed result as
+map.
 
 ```erlang
 {ok, #{
@@ -1094,10 +1120,14 @@ Finally, stored rows on `test` *relation* can be extracted as well.
 
 ```erlang
 cozo:run(Db, "?[key, value] := *test{key, value}").
-% {ok,#{<<"headers">> => [<<"key">>,<<"value">>],
-%       <<"next">> => null,<<"ok">> => true,
-%       <<"rows">> => [[<<"key">>,<<"value">>]],
-%       <<"took">> => 0.010064009}}
+% {ok, #{
+%   <<"headers">> => [<<"key">>,<<"value">>],
+%   <<"next">> => null,
+%   <<"ok">> => true,
+%   <<"rows">> => [[<<"key">>,<<"value">>]],
+%   <<"took">> => 0.010064009
+%   }
+% }
 ```
 
 ### Importing and Exporting Relations
@@ -1662,7 +1692,7 @@ guards must also be added to ensure a good programming experience.
 [^erlang-leex]: [https://www.erlang.org/doc/man/leex](https://www.erlang.org/doc/man/leex)
 [^erlang-yecc]: [https://www.erlang.org/doc/man/yecc](https://www.erlang.org/doc/man/yecc)
 [^valgrind]: [https://valgrind.org/](https://valgrind.org/)
-[erlang-qlc]: [https://www.erlang.org/doc/man/qlc.html](https://www.erlang.org/doc/man/qlc.html)
+[^erlang-qlc]: [https://www.erlang.org/doc/man/qlc.html](https://www.erlang.org/doc/man/qlc.html)
 
 ## Conclusion
 
