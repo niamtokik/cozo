@@ -25,22 +25,22 @@
 %%% '''
 %%%
 %%% ```
-%%% cozo:put(Db, {store, 1, 2, 3}).
-%%% cozo:put(Db, #store{ a=1, b=2, c=3 }).
-%%% cozo:put(Db, [#store{ a=1, b=2, c=3 }]).
+%%% cozo_draft:put(Db, {store, 1, 2, 3}).
+%%% cozo_draft:put(Db, #store{ a=1, b=2, c=3 }).
+%%% cozo_draft:put(Db, [#store{ a=1, b=2, c=3 }]).
 %%% '''
 %%%
 %%% ```
-%%% cozo:q([ #store{a = A, b = B, c = C} || [A,B,C] <- [[]] )
+%%% cozo_draft:q([ #store{a = A, b = B, c = C} || [A,B,C] <- [[]] )
 %%% '''
 %%%
 %%% == DRAFT ==
 %%%
 %%% ```
-%%% cozo:query(Db, store, [a,b,c]).
+%%% cozo_draft:query(Db, store, [a,b,c]).
 %%%
 %%% % ?[a] := *store[a,b,c], b==2
-%%% cozo:query(Db, store, [{{'$1', '$2', '_'}, [{'=:=', '$1', 2}], ['$1']}]).
+%%% cozo_draft:query(Db, store, [{{'$1', '$2', '_'}, [{'=:=', '$1', 2}], ['$1']}]).
 %%%
 %%% % ?[a] := *store[a,b,c], a<b
 %%% cozo:select(Db, store, [{'$1', '$2', '$3'}, [{'<', '$1', '$2'}], ['$1']]).
