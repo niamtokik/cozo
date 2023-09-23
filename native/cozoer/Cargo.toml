@@ -1,0 +1,16 @@
+[package]
+name = "cozoer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "cozoer"
+path = "src/lib.rs"
+crate-type = ["dylib"]
+
+[dependencies]
+rustler = {version = "0.29.0", features = ["nif_version_2_16"]}
+cozo = { git = "https://github.com/niamtokik/cozodb", branch = "main" }
+serde = { version = "1.0.137" }
+serde_derive  = { version = "1.0.137" }
+serde_rustler = {git = "https://github.com/leapsight/serde_rustler.git", branch = "master"}
