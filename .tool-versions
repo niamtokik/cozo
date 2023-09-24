@@ -1,4 +1,4 @@
-# erlang 26.0.2
-# rebar 3.22.1
+erlang 26.0.2
+rebar 3.22.1
 rust 1.72.0
 make 4.4.1

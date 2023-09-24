@@ -14,8 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: "install asdf"
-        uses: asdf-vm/actions/install@v2
+      - name: "install rust"
+        uses: dtolnay/rust-toolchain@stable
 
       - name: "Fetch and compile dependencies"
         run: make deps
