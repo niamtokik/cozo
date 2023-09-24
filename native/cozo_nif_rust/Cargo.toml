@@ -1,10 +1,10 @@
 [package]
-name = "cozoer"
+name = "cozo_nif_rust"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "cozoer"
+name = "cozo_nif_rust"
 path = "src/lib.rs"
 crate-type = ["dylib"]
 

@@ -51,7 +51,20 @@
 %%%===================================================================
 -module(cozo_nif_rust).
 -compile(export_all).
+-export([open_db/3]).
+-nif([open_db/3, close_db/1, run_query/2]).
+-on_load(init/0).
+-include("cargo.hrl").
+-define(NOT_LOADED, not_loaded(?LINE)).
 
+init() ->
+    ?load_nif_from_crate(cozo_nif_rust, 0).
 
+open_db(Engine, Path, Options) ->
+    erlang:nif_error(nif_not_loaded).
 
+run_query(Db, Query) ->
+    erlang:nif_error(nif_not_loaded).
 
+close_db(Db) ->
+    erlang:nif_error(nif_not_loaded).
