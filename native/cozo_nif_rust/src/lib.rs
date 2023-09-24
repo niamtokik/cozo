@@ -30,7 +30,7 @@ fn load(env: Env, _: Term) -> bool {
 
 /* open database with strings as arguments. Strings
  * are represented as binary on the Erlang side, not
- * classical Erlang list of small integers.
+ * classical Erlang list of small integers...
  */
 #[rustler::nif(schedule = "DirtyCpu")]
 fn open_db(engine: &str, path: &str, options: &str) -> Result<ResourceArc<DbResource>, Error> {
