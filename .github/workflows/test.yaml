@@ -14,9 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-
-      - name: "Install rust and cargo"
-        run: apt-get update && apt-get install -y cargo
+      - name: "install asdf"
+        uses: asdf-vm/actions/install@v2
 
       - name: "Fetch and compile dependencies"
         run: make deps
