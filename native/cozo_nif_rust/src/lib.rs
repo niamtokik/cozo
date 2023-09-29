@@ -5,6 +5,7 @@ use rustler::Error;
 use rustler::NifMap;
 use rustler::NifTuple;
 use rustler::Term;
+use rustler::types::OwnedBinary;
 use rustler::ResourceArc;
 use cozo::*;
 
@@ -33,7 +34,8 @@ fn load(env: Env, _: Term) -> bool {
  * classical Erlang list of small integers...
  */
 #[rustler::nif(schedule = "DirtyCpu")]
-fn open_db(engine: &str, path: &str, options: &str) -> Result<ResourceArc<DbResource>, Error> {
+fn open_db(engine: &str, path: &str, options: &str)
+           -> Result<ResourceArc<DbResource>, Error> {
     let db = DbInstance::new(engine, path, options).unwrap();
     let resource = ResourceArc::new(DbResource{ db: db });
     Ok(resource)
@@ -46,8 +48,15 @@ fn open_db(engine: &str, path: &str, options: &str) -> Result<ResourceArc<DbReso
  *   3. run query on json? (don't even sure if it's supported)
  */
 #[rustler::nif]
-fn run_query(_db: i64, _query: &str) -> i64 {
-    return 1;
+fn run_query<'a>(env: Env<'a>, resource: ResourceArc<DbResource>, _query: &'a str)
+             -> Result<Term<'a>, Error> {
+    // let db = resource.db;
+    // let result = db.run_script(query, Default::default(), ScriptMutability::Immutable)
+    //     .unwrap();
+    let s = b"test";
+    let mut binary = OwnedBinary::new(s.len()).unwrap();
+    let _ = binary.copy_from_slice(s);
+    Ok(binary.release(env).to_term(env))
 }
 
 /* work in progress. cozoscript query is compiled and bytecode is
@@ -92,9 +101,9 @@ fn close_db(env: Env, resource: ResourceArc<DbResource>) -> Result<Term, Error> 
  */
 
 rustler::init!("cozo_nif_rust",
-    [ open_db
-    , run_query
-    , close_db
+    [ open_db,
+      run_query,
+      close_db
     ],
     load = load
 );
